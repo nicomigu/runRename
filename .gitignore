@@ -5,6 +5,16 @@ __pycache__/
 dist/
 build/
 .venv/
+venv/
 .pytest_cache/
 *.db
 *.sqlite3
+htmlcov/
+.coverage*
+*.log
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

@@ -1,7 +1,10 @@
+import secrets
+import time
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
@@ -14,22 +17,27 @@ from app.models.preference import Preference
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
+state_serializer = URLSafeTimedSerializer(settings.SESSION_SECRET, salt="oauth-state")
 
 STRAVA_AUTH_URL = "https://www.strava.com/oauth/authorize"
 STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token"
+STATE_MAX_AGE = 600  # 10 minutes
 
 
 @router.get("/strava")
 async def strava_login(beta: str | None = Query(default=None)) -> RedirectResponse:
-    state = ""
-    if beta and settings.BETA_INVITE_CODE and beta == settings.BETA_INVITE_CODE:
-        state = "beta"
+    is_beta = bool(beta and settings.BETA_INVITE_CODE and beta == settings.BETA_INVITE_CODE)
+    signed_state = state_serializer.dumps({
+        "nonce": secrets.token_hex(16),
+        "beta": is_beta,
+        "issued_at": int(time.time()),
+    })
     params = urlencode({
         "client_id": settings.STRAVA_CLIENT_ID,
         "redirect_uri": f"{settings.BASE_URL}/auth/callback",
         "response_type": "code",
         "scope": "activity:read_all,activity:write",
-        "state": state,
+        "state": signed_state,
     })
     return RedirectResponse(url=f"{STRAVA_AUTH_URL}?{params}")
 
@@ -41,6 +49,13 @@ async def strava_callback(
     db: AsyncSession = Depends(get_db),
     client: httpx.AsyncClient = Depends(get_http_client),
 ) -> RedirectResponse:
+    try:
+        state_data = state_serializer.loads(state, max_age=STATE_MAX_AGE)
+    except (BadSignature, SignatureExpired):
+        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state")
+
+    is_beta = state_data.get("beta", False)
+
     token_response = await client.post(
         STRAVA_TOKEN_URL,
         data={
@@ -58,8 +73,6 @@ async def strava_callback(
 
     result = await db.execute(select(User).where(User.strava_id == strava_id))
     user = result.scalar_one_or_none()
-
-    is_beta = state == "beta"
 
     if user is None:
         user = User(
@@ -84,11 +97,13 @@ async def strava_callback(
 
     await db.commit()
 
+    use_secure = settings.BASE_URL.startswith("https")
     response = RedirectResponse(url="/dashboard", status_code=302)
     response.set_cookie(
         key="session",
         value=create_session_cookie(user.id),
         httponly=True,
+        secure=use_secure,
         max_age=60 * 60 * 24 * 30,
         samesite="lax",
     )

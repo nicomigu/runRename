@@ -1,6 +1,8 @@
 from unittest.mock import AsyncMock, patch
 
-from app.services.claude import build_context, generate_name
+import pytest
+
+from app.services.claude import FALLBACK_NAME, build_context, generate_name, sanitize_name
 
 
 def test_build_context_with_weather():
@@ -72,3 +74,17 @@ async def test_generate_name_calls_anthropic():
     call_kwargs = mock_client.messages.create.call_args.kwargs
     assert call_kwargs["model"] == "claude-haiku-4-5-20251001"
     assert call_kwargs["max_tokens"] == 50
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ('"Rainy dawn miles"', "Rainy dawn miles"),
+    ("'foggy morning run'", "foggy morning run"),
+    ("  sunrise shuffle  ", "sunrise shuffle"),
+    ("one two three four five six seven eight nine ten", "one two three four five six seven eight"),
+    ("#running #morning just a run", "just a run"),
+    ("#hashtag #only", FALLBACK_NAME),
+    ("", FALLBACK_NAME),
+    ("   ", FALLBACK_NAME),
+])
+def test_sanitize_name(raw: str, expected: str):
+    assert sanitize_name(raw) == expected

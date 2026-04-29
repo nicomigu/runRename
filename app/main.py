@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from app.db import engine
+from app.dependencies import serializer, MAX_SESSION_AGE
 from app.routes import auth, webhook, dashboard, payment, admin
 
 
@@ -47,7 +48,11 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 @app.get("/", response_class=HTMLResponse)
 async def landing(request: Request, session: str | None = Cookie(default=None)):
     if session:
-        return RedirectResponse(url="/dashboard", status_code=302)
+        try:
+            serializer.loads(session, max_age=MAX_SESSION_AGE)
+            return RedirectResponse(url="/dashboard", status_code=302)
+        except Exception:
+            pass
     return templates.TemplateResponse(request, "landing.html", context={"user": None})
 
 

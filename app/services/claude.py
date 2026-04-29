@@ -80,6 +80,18 @@ def build_context(activity_data: dict, weather: dict | None) -> dict:
     return context
 
 
+FALLBACK_NAME = "morning miles"
+
+
+def sanitize_name(raw: str) -> str:
+    raw = raw.strip().strip('"').strip("'")
+    words = [w for w in raw.split() if not w.startswith("#")]
+    if len(words) > 8:
+        words = words[:8]
+    name = " ".join(words).strip()
+    return name if name else FALLBACK_NAME
+
+
 async def generate_name(context: dict, style: str = "poetic") -> str:
     style_hint = STYLE_HINTS.get(style, STYLE_HINTS["poetic"])
 
@@ -93,7 +105,11 @@ async def generate_name(context: dict, style: str = "poetic") -> str:
         messages=[{"role": "user", "content": user_message}],
     )
 
-    name = response.content[0].text.strip().strip('"').strip("'")
+    if not response.content or not hasattr(response.content[0], "text"):
+        logger.warning("Empty response from Claude, using fallback")
+        return FALLBACK_NAME
+
+    name = sanitize_name(response.content[0].text)
     logger.info("Claude generated: %r (style=%s)", name, style)
     return name
 

@@ -99,6 +99,7 @@ async def rename_activity(
     user: User,
     db: AsyncSession,
     client: httpx.AsyncClient,
+    activity_row: Activity | None = None,
 ) -> str:
     activity_data = await strava.get_activity(activity_id, user, db, client)
     laps = activity_data.get("laps", [])
@@ -127,13 +128,18 @@ async def rename_activity(
 
     await strava.patch_activity_name(activity_id, new_name, user, db, client)
 
-    db.add(Activity(
-        user_id=user.id,
-        strava_activity_id=activity_id,
-        original_name=original_name,
-        generated_name=new_name,
-        raw_context=raw_context,
-    ))
+    if activity_row:
+        activity_row.original_name = original_name
+        activity_row.generated_name = new_name
+        activity_row.raw_context = raw_context
+    else:
+        db.add(Activity(
+            user_id=user.id,
+            strava_activity_id=activity_id,
+            original_name=original_name,
+            generated_name=new_name,
+            raw_context=raw_context,
+        ))
     await db.commit()
 
     logger.info("Renamed activity %s → %r for user %s", activity_id, new_name, user.strava_id)

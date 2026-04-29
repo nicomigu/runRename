@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.activity import Activity
 from app.models.user import User
 
 
@@ -115,3 +116,50 @@ async def test_post_not_authorized(client: AsyncClient, test_user: User, db: Asy
     })
     assert response.status_code == 200
     assert response.json()["status"] == "not_authorized"
+
+
+async def test_post_subscribed_user_processed(client: AsyncClient, test_user: User, db: AsyncSession):
+    test_user.auto_rename = True
+    test_user.beta_user = False
+    test_user.subscribed = True
+    await db.commit()
+
+    with patch(
+        "app.services.claude.generate_name",
+        new_callable=AsyncMock,
+        return_value="Paid user morning shuffle",
+    ):
+        response = await client.post("/webhook", json={
+            "object_type": "activity",
+            "aspect_type": "create",
+            "object_id": 999,
+            "owner_id": test_user.strava_id,
+        })
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "processed"
+    assert data["new_name"] == "Paid user morning shuffle"
+
+
+async def test_post_duplicate_webhook_already_processed(
+    client: AsyncClient, test_user: User, db: AsyncSession
+):
+    test_user.auto_rename = True
+    test_user.beta_user = True
+    await db.commit()
+
+    db.add(Activity(
+        user_id=test_user.id,
+        strava_activity_id=999,
+        generated_name="Already named",
+    ))
+    await db.commit()
+
+    response = await client.post("/webhook", json={
+        "object_type": "activity",
+        "aspect_type": "create",
+        "object_id": 999,
+        "owner_id": test_user.strava_id,
+    })
+    assert response.status_code == 200
+    assert response.json()["status"] == "already_processed"

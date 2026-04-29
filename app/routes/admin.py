@@ -1,3 +1,5 @@
+import hmac
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +18,7 @@ async def grant_beta(
     x_admin_secret: str = Header(...),
     db: AsyncSession = Depends(get_db),
 ):
-    if x_admin_secret != settings.ADMIN_SECRET:
+    if not hmac.compare_digest(x_admin_secret, settings.ADMIN_SECRET):
         raise HTTPException(status_code=403, detail="Invalid admin secret")
 
     result = await db.execute(select(User).where(User.strava_id == strava_id))

@@ -95,26 +95,31 @@ WEATHER_RESPONSE = {
 
 
 @pytest.fixture
-def mock_http_client(mock_strava_token_response: dict) -> httpx.AsyncClient:
-    def handler(request: httpx.Request) -> httpx.Response:
-        url = str(request.url)
-        if "strava.com/oauth/token" in url:
-            return httpx.Response(200, json=mock_strava_token_response)
-        if "strava.com/api/v3/activities/888" in url:
-            if request.method == "GET":
-                return httpx.Response(200, json=INTERVAL_ACTIVITY)
-            if request.method == "PUT":
-                return httpx.Response(200, json={"id": 888, "name": "Updated"})
-        if "strava.com/api/v3/activities/999" in url:
-            if request.method == "GET":
-                return httpx.Response(200, json=EASY_RUN_ACTIVITY)
-            if request.method == "PUT":
-                return httpx.Response(200, json={"id": 999, "name": "Updated"})
-        if "openweathermap.org" in url:
-            return httpx.Response(200, json=WEATHER_RESPONSE)
-        return httpx.Response(404, json={"error": "not found"})
+async def mock_http_client(mock_strava_token_response: dict) -> httpx.AsyncClient:
+    client = httpx.AsyncClient(transport=httpx.MockTransport(
+        lambda request: _mock_handler(request, mock_strava_token_response)
+    ))
+    yield client
+    await client.aclose()
 
-    return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+def _mock_handler(request: httpx.Request, token_response: dict) -> httpx.Response:
+    url = str(request.url)
+    if "strava.com/oauth/token" in url:
+        return httpx.Response(200, json=token_response)
+    if "strava.com/api/v3/activities/888" in url:
+        if request.method == "GET":
+            return httpx.Response(200, json=INTERVAL_ACTIVITY)
+        if request.method == "PUT":
+            return httpx.Response(200, json={"id": 888, "name": "Updated"})
+    if "strava.com/api/v3/activities/999" in url:
+        if request.method == "GET":
+            return httpx.Response(200, json=EASY_RUN_ACTIVITY)
+        if request.method == "PUT":
+            return httpx.Response(200, json={"id": 999, "name": "Updated"})
+    if "openweathermap.org" in url:
+        return httpx.Response(200, json=WEATHER_RESPONSE)
+    return httpx.Response(404, json={"error": "not found"})
 
 
 @pytest.fixture
@@ -157,8 +162,11 @@ async def _override_get_db():
 
 
 @pytest.fixture
-def client(mock_http_client: httpx.AsyncClient) -> AsyncClient:
+async def client(mock_http_client: httpx.AsyncClient):
     app.dependency_overrides[get_db] = _override_get_db
     app.dependency_overrides[get_http_client] = lambda: mock_http_client
-    yield AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
-    app.dependency_overrides.clear()
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            yield c
+    finally:
+        app.dependency_overrides.clear()
