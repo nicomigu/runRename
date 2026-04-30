@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import anthropic
 
@@ -13,14 +14,19 @@ SYSTEM_PROMPT = """You name running and walking activities. Return ONLY the titl
 Rules:
 - Max 8 words
 - No hashtags
-- Slightly poetic or humorous
-- Reflect the conditions: weather, time of day, effort level
 - Lowercase unless a proper noun
+- Be creative, witty, and human — like a runner naming their own run
+- Blend conditions (weather, time, effort) into a vibe, don't just list them
+- Short activities or walks deserve fun names too — don't be boring about it
 
 Examples:
-- "Humid monday shuffle, legs still waking"
-- "Two hours and a sunrise"
-- "Foggy morning six before coffee"
+- "humid monday shuffle, legs still waking"
+- "two hours and a sunrise"
+- "foggy morning six before coffee"
+- "just stepped outside honestly"
+- "a walk that wanted to be a nap"
+- "three minutes of pure ambition"
+- "sunset legs, no plan"
 """
 
 STYLE_HINTS = {
@@ -30,10 +36,23 @@ STYLE_HINTS = {
 }
 
 
+def _parse_timezone(tz_string: str | None) -> ZoneInfo | None:
+    if not tz_string:
+        return None
+    try:
+        iana_name = tz_string.split(") ", 1)[-1]
+        return ZoneInfo(iana_name)
+    except (KeyError, IndexError):
+        return None
+
+
 def build_context(activity_data: dict, weather: dict | None) -> dict:
     start_date = activity_data.get("start_date", "")
+    tz = _parse_timezone(activity_data.get("timezone"))
     try:
         dt = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+        if tz:
+            dt = dt.astimezone(tz)
         hour = dt.hour
         day_of_week = dt.strftime("%A")
     except (ValueError, AttributeError):
@@ -80,6 +99,24 @@ def build_context(activity_data: dict, weather: dict | None) -> dict:
     return context
 
 
+WORKOUT_PROMPT = """You add a short, witty tagline to a structured running workout title. You receive a workout name like "4x1k -- 60s rest" and some context. Return ONLY a short tagline (2-5 words), no quotes.
+
+The final title will be: "{workout_name}. {your tagline}"
+
+Rules:
+- 2-5 words only
+- Capture the vibe or suffering of the workout
+- Be creative, funny, or dramatic
+- No hashtags
+
+Examples:
+- "entering the pain cave"
+- "legs had opinions today"
+- "speed has a price"
+- "tuesday torture session"
+- "coach said easy"
+"""
+
 FALLBACK_NAME = "morning miles"
 
 
@@ -112,6 +149,33 @@ async def generate_name(context: dict, style: str = "poetic") -> str:
     name = sanitize_name(response.content[0].text)
     logger.info("Claude generated: %r (style=%s)", name, style)
     return name
+
+
+async def generate_workout_tagline(workout_name: str, context: dict, style: str = "poetic") -> str:
+    style_hint = STYLE_HINTS.get(style, STYLE_HINTS["poetic"])
+    user_message = (
+        f"Workout: {workout_name}\n"
+        f"Activity context:\n{_format_context(context)}\n\n"
+        f"Style: {style_hint}"
+    )
+
+    client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+    response = await client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=30,
+        system=WORKOUT_PROMPT,
+        messages=[{"role": "user", "content": user_message}],
+    )
+
+    if not response.content or not hasattr(response.content[0], "text"):
+        return workout_name
+
+    tagline = sanitize_name(response.content[0].text)
+    if tagline == FALLBACK_NAME:
+        return workout_name
+
+    logger.info("Workout tagline: %r for %s (style=%s)", tagline, workout_name, style)
+    return f"{workout_name}. {tagline}"
 
 
 def _format_context(context: dict) -> str:

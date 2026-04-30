@@ -2,7 +2,13 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.services.claude import FALLBACK_NAME, build_context, generate_name, sanitize_name
+from app.services.claude import (
+    FALLBACK_NAME,
+    build_context,
+    generate_name,
+    generate_workout_tagline,
+    sanitize_name,
+)
 
 
 def test_build_context_with_weather():
@@ -37,6 +43,30 @@ def test_build_context_without_weather():
     assert ctx["activity_type"] == "Walk"
     assert ctx["time_of_day"] == "evening"
     assert "weather" not in ctx
+
+
+def test_build_context_converts_timezone():
+    activity = {
+        "type": "Run",
+        "start_date": "2026-04-29T23:00:00Z",
+        "timezone": "(GMT-05:00) America/New_York",
+        "distance": 5000,
+        "moving_time": 1500,
+    }
+    ctx = build_context(activity, None)
+    assert ctx["time_of_day"] == "evening"
+    assert ctx["day_of_week"] == "Wednesday"
+
+
+def test_build_context_no_timezone_uses_utc():
+    activity = {
+        "type": "Run",
+        "start_date": "2026-04-29T23:00:00Z",
+        "distance": 5000,
+        "moving_time": 1500,
+    }
+    ctx = build_context(activity, None)
+    assert ctx["time_of_day"] == "night"
 
 
 def test_build_context_time_of_day_buckets():
@@ -74,6 +104,39 @@ async def test_generate_name_calls_anthropic():
     call_kwargs = mock_client.messages.create.call_args.kwargs
     assert call_kwargs["model"] == "claude-haiku-4-5-20251001"
     assert call_kwargs["max_tokens"] == 50
+
+
+async def test_generate_workout_tagline():
+    mock_response = AsyncMock()
+    mock_response.content = [AsyncMock(text="entering the pain cave")]
+
+    mock_client = AsyncMock()
+    mock_client.messages.create = AsyncMock(return_value=mock_response)
+
+    with patch("app.services.claude.anthropic.AsyncAnthropic", return_value=mock_client):
+        name = await generate_workout_tagline(
+            "4x1k -- 60s rest",
+            {"activity_type": "Run", "time_of_day": "morning"},
+            "poetic",
+        )
+
+    assert name == "4x1k -- 60s rest. entering the pain cave"
+
+
+async def test_generate_workout_tagline_fallback_on_empty():
+    mock_response = AsyncMock()
+    mock_response.content = []
+
+    mock_client = AsyncMock()
+    mock_client.messages.create = AsyncMock(return_value=mock_response)
+
+    with patch("app.services.claude.anthropic.AsyncAnthropic", return_value=mock_client):
+        name = await generate_workout_tagline(
+            "4x1k -- 60s rest",
+            {"activity_type": "Run", "time_of_day": "morning"},
+        )
+
+    assert name == "4x1k -- 60s rest"
 
 
 @pytest.mark.parametrize("raw,expected", [

@@ -107,22 +107,23 @@ async def rename_activity(
 
     workout_name = parse_workout_from_laps(laps)
 
+    start_latlng = activity_data.get("start_latlng")
+    start_date = activity_data.get("start_date")
+
+    weather = await weather_service.get_conditions(start_latlng, start_date, client)
+
+    pref_result = await db.execute(
+        select(Preference).where(Preference.user_id == user.id)
+    )
+    preference = pref_result.scalar_one_or_none()
+    style = preference.style if preference else "poetic"
+
+    context = claude_service.build_context(activity_data, weather)
+
     if workout_name:
-        new_name = workout_name
-        raw_context = {"source": "structured_workout", "laps_count": len(laps)}
+        new_name = await claude_service.generate_workout_tagline(workout_name, context, style)
+        raw_context = {"source": "structured_workout", "laps_count": len(laps), **context}
     else:
-        start_latlng = activity_data.get("start_latlng")
-        start_date = activity_data.get("start_date")
-
-        weather = await weather_service.get_conditions(start_latlng, start_date, client)
-
-        pref_result = await db.execute(
-            select(Preference).where(Preference.user_id == user.id)
-        )
-        preference = pref_result.scalar_one_or_none()
-        style = preference.style if preference else "poetic"
-
-        context = claude_service.build_context(activity_data, weather)
         new_name = await claude_service.generate_name(context, style)
         raw_context = context
 
