@@ -94,6 +94,9 @@ async def strava_callback(
         user.expires_at = token_data["expires_at"]
         user.name = f'{athlete.get("firstname", "")} {athlete.get("lastname", "")}'.strip()
         user.profile_pic = athlete.get("profile")
+        if is_beta and not user.beta_user:
+            user.beta_user = True
+            user.auto_rename = True
 
     await db.commit()
 

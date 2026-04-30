@@ -121,6 +121,24 @@ async def test_strava_login_with_invalid_beta_code(client: AsyncClient):
     assert state_data["beta"] is False
 
 
+async def test_callback_beta_applied_on_repeat_login(
+    client: AsyncClient, db: AsyncSession, test_user: User
+):
+    assert test_user.beta_user is False
+
+    state = _make_signed_state(beta=True)
+    response = await client.get(
+        f"/auth/callback?code=test_code&state={state}", follow_redirects=False
+    )
+    assert response.status_code == 302
+
+    db.expire_all()
+    result = await db.execute(select(User).where(User.strava_id == 12345))
+    user = result.scalar_one()
+    assert user.beta_user is True
+    assert user.auto_rename is True
+
+
 async def test_logout_clears_cookie(client: AsyncClient):
     response = await client.get("/auth/logout", follow_redirects=False)
     assert response.status_code == 302

@@ -8,6 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from itsdangerous import BadSignature, SignatureExpired
+
 from app.db import engine
 from app.dependencies import serializer, MAX_SESSION_AGE
 from app.routes import auth, webhook, dashboard, payment, admin
@@ -51,7 +53,7 @@ async def landing(request: Request, session: str | None = Cookie(default=None)):
         try:
             serializer.loads(session, max_age=MAX_SESSION_AGE)
             return RedirectResponse(url="/dashboard", status_code=302)
-        except Exception:
+        except (BadSignature, SignatureExpired):
             pass
     return templates.TemplateResponse(request, "landing.html", context={"user": None})
 
