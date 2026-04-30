@@ -42,7 +42,7 @@ def _parse_timezone(tz_string: str | None) -> ZoneInfo | None:
     try:
         iana_name = tz_string.split(") ", 1)[-1]
         return ZoneInfo(iana_name)
-    except (KeyError, IndexError):
+    except (KeyError, IndexError, ValueError):
         return None
 
 
@@ -134,13 +134,17 @@ async def generate_name(context: dict, style: str = "poetic") -> str:
 
     user_message = f"Activity context:\n{_format_context(context)}\n\nStyle: {style_hint}"
 
-    client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = await client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=50,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_message}],
-    )
+    try:
+        client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+        response = await client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=50,
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_message}],
+        )
+    except anthropic.APIError:
+        logger.exception("Anthropic API error in generate_name")
+        return FALLBACK_NAME
 
     if not response.content or not hasattr(response.content[0], "text"):
         logger.warning("Empty response from Claude, using fallback")
@@ -159,13 +163,17 @@ async def generate_workout_tagline(workout_name: str, context: dict, style: str 
         f"Style: {style_hint}"
     )
 
-    client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = await client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=30,
-        system=WORKOUT_PROMPT,
-        messages=[{"role": "user", "content": user_message}],
-    )
+    try:
+        client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+        response = await client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=30,
+            system=WORKOUT_PROMPT,
+            messages=[{"role": "user", "content": user_message}],
+        )
+    except anthropic.APIError:
+        logger.exception("Anthropic API error in generate_workout_tagline")
+        return workout_name
 
     if not response.content or not hasattr(response.content[0], "text"):
         return workout_name
