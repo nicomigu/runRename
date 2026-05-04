@@ -2,7 +2,16 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.services.claude import FALLBACK_NAME, build_context, generate_name, sanitize_name
+from app.services.claude import (
+    FALLBACK_NAME,
+    _calculate_gap,
+    _suffer_to_effort,
+    build_context,
+    build_description_block,
+    generate_name,
+    generate_workout_tagline,
+    sanitize_name,
+)
 
 
 def test_build_context_with_weather():
@@ -37,6 +46,30 @@ def test_build_context_without_weather():
     assert ctx["activity_type"] == "Walk"
     assert ctx["time_of_day"] == "evening"
     assert "weather" not in ctx
+
+
+def test_build_context_converts_timezone():
+    activity = {
+        "type": "Run",
+        "start_date": "2026-04-29T23:00:00Z",
+        "timezone": "(GMT-05:00) America/New_York",
+        "distance": 5000,
+        "moving_time": 1500,
+    }
+    ctx = build_context(activity, None)
+    assert ctx["time_of_day"] == "evening"
+    assert ctx["day_of_week"] == "Wednesday"
+
+
+def test_build_context_no_timezone_uses_utc():
+    activity = {
+        "type": "Run",
+        "start_date": "2026-04-29T23:00:00Z",
+        "distance": 5000,
+        "moving_time": 1500,
+    }
+    ctx = build_context(activity, None)
+    assert ctx["time_of_day"] == "night"
 
 
 def test_build_context_time_of_day_buckets():
@@ -74,6 +107,106 @@ async def test_generate_name_calls_anthropic():
     call_kwargs = mock_client.messages.create.call_args.kwargs
     assert call_kwargs["model"] == "claude-haiku-4-5-20251001"
     assert call_kwargs["max_tokens"] == 50
+
+
+async def test_generate_workout_tagline():
+    mock_response = AsyncMock()
+    mock_response.content = [AsyncMock(text="entering the pain cave")]
+
+    mock_client = AsyncMock()
+    mock_client.messages.create = AsyncMock(return_value=mock_response)
+
+    with patch("app.services.claude.anthropic.AsyncAnthropic", return_value=mock_client):
+        name = await generate_workout_tagline(
+            "4x1k -- 60s rest",
+            {"activity_type": "Run", "time_of_day": "morning"},
+            "poetic",
+        )
+
+    assert name == "4x1k -- 60s rest. entering the pain cave"
+
+
+async def test_generate_workout_tagline_fallback_on_empty():
+    mock_response = AsyncMock()
+    mock_response.content = []
+
+    mock_client = AsyncMock()
+    mock_client.messages.create = AsyncMock(return_value=mock_response)
+
+    with patch("app.services.claude.anthropic.AsyncAnthropic", return_value=mock_client):
+        name = await generate_workout_tagline(
+            "4x1k -- 60s rest",
+            {"activity_type": "Run", "time_of_day": "morning"},
+        )
+
+    assert name == "4x1k -- 60s rest"
+
+
+@pytest.mark.parametrize("suffer,expected_score,expected_label", [
+    (10, 2, "chill"),
+    (40, 3, "easy"),
+    (65, 5, "moderate"),
+    (90, 6, "solid"),
+    (130, 7, "hard"),
+    (180, 9, "brutal"),
+    (250, 10, "death"),
+])
+def test_suffer_to_effort(suffer, expected_score, expected_label):
+    score, label = _suffer_to_effort(suffer)
+    assert score == expected_score
+    assert label == expected_label
+
+
+def test_calculate_gap_hot_and_humid():
+    gap = _calculate_gap("5:23", {"temp_c": 31, "humidity": 75, "wind_speed_ms": 2})
+    assert gap is not None
+    parts = gap.split(":")
+    gap_seconds = int(parts[0]) * 60 + int(parts[1])
+    assert gap_seconds < 5 * 60 + 23
+
+
+def test_calculate_gap_near_ideal_returns_none():
+    gap = _calculate_gap("5:00", {"temp_c": 12, "humidity": 45, "wind_speed_ms": 1})
+    assert gap is None
+
+
+def test_calculate_gap_no_weather():
+    assert _calculate_gap("5:00", None) is None
+
+
+def test_calculate_gap_no_pace():
+    assert _calculate_gap(None, {"temp_c": 30}) is None
+
+
+def test_build_description_block_full():
+    ctx = {
+        "activity_type": "Run",
+        "pace_min_per_km": "5:23",
+        "average_heartrate": 155,
+        "suffer_score": 145,
+        "weather": {"temp_c": 31, "description": "humid", "humidity": 75, "wind_speed_ms": 2},
+    }
+    block = build_description_block(ctx)
+    assert "31°C" in block
+    assert "humid" in block
+    assert "155 bpm avg" in block
+    assert "7/10" in block
+    assert "hard" in block
+    assert "ideal conditions" in block
+
+
+def test_build_description_block_no_weather():
+    ctx = {"activity_type": "Run", "average_heartrate": 140, "suffer_score": 50}
+    block = build_description_block(ctx)
+    assert "140 bpm avg" in block
+    assert "3/10" in block
+    assert "🌤️" not in block
+
+
+def test_build_description_block_empty():
+    ctx = {"activity_type": "Walk"}
+    block = build_description_block(ctx)
+    assert block == ""
 
 
 @pytest.mark.parametrize("raw,expected", [

@@ -107,26 +107,39 @@ async def rename_activity(
 
     workout_name = parse_workout_from_laps(laps)
 
+    start_latlng = activity_data.get("start_latlng")
+    start_date = activity_data.get("start_date")
+
+    weather = await weather_service.get_conditions(start_latlng, start_date, client)
+
+    pref_result = await db.execute(
+        select(Preference).where(Preference.user_id == user.id)
+    )
+    preference = pref_result.scalar_one_or_none()
+    style = preference.style if preference else "poetic"
+
+    context = claude_service.build_context(activity_data, weather)
+
     if workout_name:
-        new_name = workout_name
-        raw_context = {"source": "structured_workout", "laps_count": len(laps)}
+        new_name = await claude_service.generate_workout_tagline(workout_name, context, style)
+        raw_context = {"source": "structured_workout", "laps_count": len(laps), **context}
     else:
-        start_latlng = activity_data.get("start_latlng")
-        start_date = activity_data.get("start_date")
-
-        weather = await weather_service.get_conditions(start_latlng, start_date, client)
-
-        pref_result = await db.execute(
-            select(Preference).where(Preference.user_id == user.id)
-        )
-        preference = pref_result.scalar_one_or_none()
-        style = preference.style if preference else "poetic"
-
-        context = claude_service.build_context(activity_data, weather)
         new_name = await claude_service.generate_name(context, style)
         raw_context = context
 
-    await strava.patch_activity_name(activity_id, new_name, user, db, client)
+    desc_block = claude_service.build_description_block(context)
+    existing_desc = activity_data.get("description") or ""
+    if desc_block:
+        separator = "\n\n───\n" if existing_desc.strip() else ""
+        full_description = f"{existing_desc}{separator}{desc_block}"
+    else:
+        full_description = None
+
+    await strava.patch_activity(
+        activity_id, user, db, client,
+        name=new_name,
+        description=full_description,
+    )
 
     if activity_row:
         activity_row.original_name = original_name

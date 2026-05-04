@@ -46,13 +46,26 @@ async def get_activity(
     return response.json()
 
 
-async def patch_activity_name(
-    activity_id: int, name: str, user: User, db: AsyncSession, client: httpx.AsyncClient
+async def patch_activity(
+    activity_id: int,
+    user: User,
+    db: AsyncSession,
+    client: httpx.AsyncClient,
+    *,
+    name: str | None = None,
+    description: str | None = None,
 ) -> None:
     await refresh_token_if_expired(user, db, client)
+    payload: dict[str, str] = {}
+    if name is not None:
+        payload["name"] = name
+    if description is not None:
+        payload["description"] = description
+    if not payload:
+        return
     response = await client.put(
         f"{STRAVA_API_BASE}/activities/{activity_id}",
         headers={"Authorization": f"Bearer {user.access_token}"},
-        json={"name": name},
+        json=payload,
     )
     response.raise_for_status()
