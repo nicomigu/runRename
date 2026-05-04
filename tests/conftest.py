@@ -112,6 +112,11 @@ def _mock_handler(request: httpx.Request, token_response: dict) -> httpx.Respons
             return httpx.Response(200, json=INTERVAL_ACTIVITY)
         if request.method == "PUT":
             return httpx.Response(200, json={"id": 888, "name": "Updated"})
+    if "strava.com/api/v3/activities/12345" in url:
+        if request.method == "GET":
+            return httpx.Response(200, json={**EASY_RUN_ACTIVITY, "id": 12345})
+        if request.method == "PUT":
+            return httpx.Response(200, json={"id": 12345, "name": "Updated"})
     if "strava.com/api/v3/activities/999" in url:
         if request.method == "GET":
             return httpx.Response(200, json=EASY_RUN_ACTIVITY)
@@ -165,6 +170,7 @@ async def _override_get_db():
 async def client(mock_http_client: httpx.AsyncClient):
     app.dependency_overrides[get_db] = _override_get_db
     app.dependency_overrides[get_http_client] = lambda: mock_http_client
+    app.state.http_client = mock_http_client
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
             yield c
