@@ -4,7 +4,10 @@ import pytest
 
 from app.services.claude import (
     FALLBACK_NAME,
+    _calculate_gap,
+    _suffer_to_effort,
     build_context,
+    build_description_block,
     generate_name,
     generate_workout_tagline,
     sanitize_name,
@@ -137,6 +140,73 @@ async def test_generate_workout_tagline_fallback_on_empty():
         )
 
     assert name == "4x1k -- 60s rest"
+
+
+@pytest.mark.parametrize("suffer,expected_score,expected_label", [
+    (10, 2, "chill"),
+    (40, 3, "easy"),
+    (65, 5, "moderate"),
+    (90, 6, "solid"),
+    (130, 7, "hard"),
+    (180, 9, "brutal"),
+    (250, 10, "death"),
+])
+def test_suffer_to_effort(suffer, expected_score, expected_label):
+    score, label = _suffer_to_effort(suffer)
+    assert score == expected_score
+    assert label == expected_label
+
+
+def test_calculate_gap_hot_and_humid():
+    gap = _calculate_gap("5:23", {"temp_c": 31, "humidity": 75, "wind_speed_ms": 2})
+    assert gap is not None
+    parts = gap.split(":")
+    gap_seconds = int(parts[0]) * 60 + int(parts[1])
+    assert gap_seconds < 5 * 60 + 23
+
+
+def test_calculate_gap_near_ideal_returns_none():
+    gap = _calculate_gap("5:00", {"temp_c": 12, "humidity": 45, "wind_speed_ms": 1})
+    assert gap is None
+
+
+def test_calculate_gap_no_weather():
+    assert _calculate_gap("5:00", None) is None
+
+
+def test_calculate_gap_no_pace():
+    assert _calculate_gap(None, {"temp_c": 30}) is None
+
+
+def test_build_description_block_full():
+    ctx = {
+        "activity_type": "Run",
+        "pace_min_per_km": "5:23",
+        "average_heartrate": 155,
+        "suffer_score": 145,
+        "weather": {"temp_c": 31, "description": "humid", "humidity": 75, "wind_speed_ms": 2},
+    }
+    block = build_description_block(ctx)
+    assert "31°C" in block
+    assert "humid" in block
+    assert "155 bpm avg" in block
+    assert "7/10" in block
+    assert "hard" in block
+    assert "ideal conditions" in block
+
+
+def test_build_description_block_no_weather():
+    ctx = {"activity_type": "Run", "average_heartrate": 140, "suffer_score": 50}
+    block = build_description_block(ctx)
+    assert "140 bpm avg" in block
+    assert "3/10" in block
+    assert "🌤️" not in block
+
+
+def test_build_description_block_empty():
+    ctx = {"activity_type": "Walk"}
+    block = build_description_block(ctx)
+    assert block == ""
 
 
 @pytest.mark.parametrize("raw,expected", [

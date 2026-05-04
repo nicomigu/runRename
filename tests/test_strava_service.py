@@ -4,7 +4,7 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
-from app.services.strava import get_activity, patch_activity_name, refresh_token_if_expired
+from app.services.strava import get_activity, patch_activity, refresh_token_if_expired
 
 
 async def test_refresh_skips_when_fresh(
@@ -33,7 +33,7 @@ async def test_get_activity(
     assert activity["name"] == "Morning Run"
 
 
-async def test_patch_activity_name(
+async def test_patch_activity(
     test_user: User, db: AsyncSession, mock_http_client: httpx.AsyncClient
 ):
-    await patch_activity_name(999, "New Name", test_user, db, mock_http_client)
+    await patch_activity(999, test_user, db, mock_http_client, name="New Name")
