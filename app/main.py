@@ -29,6 +29,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         done, pending = await asyncio.wait(tasks, timeout=90)
         for t in pending:
             t.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
     await app.state.http_client.aclose()
     await engine.dispose()
 
