@@ -1,6 +1,7 @@
+import asyncio
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -8,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
 
 from app.config import get_settings
-from app.db import get_db
+from app.db import async_session, get_db
 from app.dependencies import get_http_client
 from app.models.activity import Activity
 from app.models.user import User
@@ -17,6 +18,16 @@ from app.services import renamer
 router = APIRouter(prefix="/webhook", tags=["webhook"])
 settings = get_settings()
 logger = logging.getLogger(__name__)
+
+PROCESSING_DELAY_SECONDS = 60
+
+_background_tasks: set[asyncio.Task] = set()
+
+
+def _spawn_task(coro) -> None:
+    task = asyncio.create_task(coro)
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
 
 class StravaWebhookEvent(BaseModel):
@@ -39,11 +50,36 @@ async def verify_webhook(
     return {"hub.challenge": hub_challenge}
 
 
+async def _process_activity(
+    activity_id: int,
+    user_id: int,
+    http_client: httpx.AsyncClient,
+) -> None:
+    await asyncio.sleep(PROCESSING_DELAY_SECONDS)
+
+    async with async_session() as db:
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if user is None:
+            logger.error("User id=%s disappeared before processing activity %s", user_id, activity_id)
+            return
+
+        result = await db.execute(
+            select(Activity).where(Activity.strava_activity_id == activity_id)
+        )
+        activity_row = result.scalar_one_or_none()
+
+        try:
+            await renamer.rename_activity(activity_id, user, db, http_client, activity_row)
+        except Exception:
+            logger.exception("Failed to rename activity %s for user %s", activity_id, user_id)
+
+
 @router.post("")
 async def receive_event(
     event: StravaWebhookEvent,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    client: httpx.AsyncClient = Depends(get_http_client),
 ):
     if event.object_type != "activity" or event.aspect_type != "create":
         return {"status": "ignored"}
@@ -76,10 +112,13 @@ async def receive_event(
     db.add(placeholder)
     try:
         await db.flush()
+        await db.commit()
     except IntegrityError:
         await db.rollback()
         return {"status": "already_processed"}
 
-    new_name = await renamer.rename_activity(event.object_id, user, db, client, placeholder)
+    _spawn_task(
+        _process_activity(event.object_id, user.id, request.app.state.http_client)
+    )
 
-    return {"status": "processed", "new_name": new_name}
+    return {"status": "accepted"}
