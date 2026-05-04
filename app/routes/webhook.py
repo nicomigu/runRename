@@ -21,9 +21,13 @@ logger = logging.getLogger(__name__)
 
 PROCESSING_DELAY_SECONDS = 60
 
+_background_tasks: set[asyncio.Task] = set()
+
 
 def _spawn_task(coro) -> None:
-    asyncio.create_task(coro)
+    task = asyncio.create_task(coro)
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
 
 class StravaWebhookEvent(BaseModel):

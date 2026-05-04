@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
 from pathlib import Path
@@ -14,11 +16,19 @@ from app.db import engine
 from app.dependencies import serializer, MAX_SESSION_AGE
 from app.routes import auth, webhook, dashboard, payment, admin
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.http_client = httpx.AsyncClient()
     yield
+    tasks = webhook._background_tasks.copy()
+    if tasks:
+        logger.info("Waiting for %d background rename(s) to finish...", len(tasks))
+        done, pending = await asyncio.wait(tasks, timeout=90)
+        for t in pending:
+            t.cancel()
     await app.state.http_client.aclose()
     await engine.dispose()
 
