@@ -127,7 +127,19 @@ async def rename_activity(
         new_name = await claude_service.generate_name(context, style)
         raw_context = context
 
-    await strava.patch_activity_name(activity_id, new_name, user, db, client)
+    desc_block = claude_service.build_description_block(context)
+    existing_desc = activity_data.get("description") or ""
+    if desc_block:
+        separator = "\n\n───\n" if existing_desc.strip() else ""
+        full_description = f"{existing_desc}{separator}{desc_block}"
+    else:
+        full_description = None
+
+    await strava.patch_activity(
+        activity_id, user, db, client,
+        name=new_name,
+        description=full_description,
+    )
 
     if activity_row:
         activity_row.original_name = original_name

@@ -1,4 +1,5 @@
 import logging
+import random
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -13,27 +14,50 @@ SYSTEM_PROMPT = """You name running and walking activities. Return ONLY the titl
 
 Rules:
 - Max 8 words
-- No hashtags
+- No hashtags, no quotes
 - Lowercase unless a proper noun
-- Be creative, witty, and human — like a runner naming their own run
-- Blend conditions (weather, time, effort) into a vibe, don't just list them
-- Short activities or walks deserve fun names too — don't be boring about it
+- NEVER just state the day or time of day — "tuesday morning run" is banned
+- Think storytelling, metaphor, inner monologue, or absurd humor
+- The name should feel like a chapter title, not a weather report
+- Surprise me. Two runs in the same conditions should get wildly different names
 
-Examples:
-- "humid monday shuffle, legs still waking"
-- "two hours and a sunrise"
-- "foggy morning six before coffee"
-- "just stepped outside honestly"
-- "a walk that wanted to be a nap"
+Examples of great names:
+- "the great pursuit of the perfect lunch"
+- "legs wrote a complaint letter today"
+- "chasing a cloud that didn't exist"
+- "someone lied about the distance"
+- "victory lap, audience of pigeons"
+- "the one where i forgot to stop"
+- "a negotiation between me and gravity"
 - "three minutes of pure ambition"
-- "sunset legs, no plan"
+- "plot twist: the hill won"
+
+Examples of BAD names (never do this):
+- "thursday morning jog" (just states time)
+- "rainy afternoon walk" (just lists conditions)
+- "evening 5k run" (boring, literal)
 """
 
 STYLE_HINTS = {
-    "poetic": "Lean poetic and reflective.",
-    "funny": "Lean funny and self-deprecating.",
-    "minimal": "Keep it very short and understated, 3-5 words max.",
+    "poetic": "Lean poetic — metaphor, imagery, a runner's inner world.",
+    "funny": "Lean funny — self-deprecating, absurd, the kind of name that makes someone laugh scrolling Strava.",
+    "minimal": "Keep it very short and understated, 3-5 words max. Still clever.",
 }
+
+ANGLES = [
+    "Name it like a movie title",
+    "Name it from the perspective of your legs",
+    "Name it like a chapter in a memoir",
+    "Name it like an excuse you'd give for being late",
+    "Name it like a food review",
+    "Name it like a nature documentary narrator",
+    "Name it like a text you'd send your friend after",
+    "Name it like a complaint to management",
+    "Name it like the activity had its own personality",
+    "Name it like a plot twist happened mid-run",
+    "Name it like you're narrating your inner monologue",
+    "Name it like a fortune cookie that actually ran",
+]
 
 
 def _parse_timezone(tz_string: str | None) -> ZoneInfo | None:
@@ -131,14 +155,20 @@ def sanitize_name(raw: str) -> str:
 
 async def generate_name(context: dict, style: str = "poetic") -> str:
     style_hint = STYLE_HINTS.get(style, STYLE_HINTS["poetic"])
+    angle = random.choice(ANGLES)
 
-    user_message = f"Activity context:\n{_format_context(context)}\n\nStyle: {style_hint}"
+    user_message = (
+        f"Activity context:\n{_format_context(context)}\n\n"
+        f"Style: {style_hint}\n"
+        f"Creative angle: {angle}"
+    )
 
     try:
         client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
         response = await client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=50,
+            temperature=1.0,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_message}],
         )
@@ -184,6 +214,98 @@ async def generate_workout_tagline(workout_name: str, context: dict, style: str 
 
     logger.info("Workout tagline: %r for %s (style=%s)", tagline, workout_name, style)
     return f"{workout_name}. {tagline}"
+
+
+def _suffer_to_effort(suffer_score: int | float) -> tuple[int, str]:
+    if suffer_score <= 25:
+        return 2, "chill"
+    if suffer_score <= 50:
+        return 3, "easy"
+    if suffer_score <= 75:
+        return 5, "moderate"
+    if suffer_score <= 100:
+        return 6, "solid"
+    if suffer_score <= 150:
+        return 7, "hard"
+    if suffer_score <= 200:
+        return 9, "brutal"
+    return 10, "death"
+
+
+def _calculate_gap(pace_str: str | None, weather: dict | None) -> str | None:
+    if not pace_str or not weather:
+        return None
+
+    temp = weather.get("temp_c")
+    if temp is None:
+        return None
+
+    parts = pace_str.split(":")
+    if len(parts) != 2:
+        return None
+    pace_seconds = int(parts[0]) * 60 + int(parts[1])
+
+    penalty_pct = 0.0
+
+    if temp > 15:
+        excess = temp - 15
+        penalty_pct += excess * 1.5
+        if temp > 25:
+            penalty_pct += (temp - 25) * 0.5
+    elif temp < 0:
+        penalty_pct += abs(temp) * 0.5
+
+    humidity = weather.get("humidity")
+    if humidity and humidity > 60 and temp > 20:
+        penalty_pct += (humidity - 60) * 0.1
+
+    wind_speed = weather.get("wind_speed_ms")
+    if wind_speed and wind_speed > 3:
+        penalty_pct += (wind_speed - 3) * 0.8
+
+    if penalty_pct < 2:
+        return None
+
+    ideal_seconds = pace_seconds / (1 + penalty_pct / 100)
+    ideal_min = int(ideal_seconds // 60)
+    ideal_sec = int(ideal_seconds % 60)
+    return f"{ideal_min}:{ideal_sec:02d}"
+
+
+def build_description_block(context: dict) -> str:
+    parts = []
+
+    weather = context.get("weather")
+    if weather and isinstance(weather, dict):
+        weather_bits = []
+        if weather.get("temp_c") is not None:
+            weather_bits.append(f"{weather['temp_c']}°C")
+        if weather.get("description"):
+            weather_bits.append(weather["description"])
+        if weather.get("humidity") is not None:
+            weather_bits.append(f"{weather['humidity']}% humidity")
+        if weather_bits:
+            parts.append(f"🌤️ {', '.join(weather_bits)}")
+
+    hr = context.get("average_heartrate")
+    suffer = context.get("suffer_score")
+    hr_line_parts = []
+    if hr:
+        hr_line_parts.append(f"{int(hr)} bpm avg")
+    if suffer:
+        effort, label = _suffer_to_effort(suffer)
+        hr_line_parts.append(f"effort {effort}/10 ({label})")
+    if hr_line_parts:
+        parts.append(f"❤️ {' · '.join(hr_line_parts)}")
+
+    pace = context.get("pace_min_per_km")
+    gap = _calculate_gap(pace, weather)
+    if pace and gap:
+        parts.append(f"⚡ {pace}/km → ~{gap}/km in ideal conditions")
+    elif pace and weather and weather.get("temp_c") is not None:
+        parts.append(f"⚡ {pace}/km · near ideal conditions 👌")
+
+    return "\n".join(parts)
 
 
 def _format_context(context: dict) -> str:
