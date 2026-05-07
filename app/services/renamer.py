@@ -109,6 +109,7 @@ async def rename_activity(
 
     start_latlng = activity_data.get("start_latlng")
     weather = await weather_service.get_conditions(start_latlng, client)
+    logger.info("Weather for activity %s (latlng=%s): %s", activity_id, start_latlng, weather)
 
     pref_result = await db.execute(
         select(Preference).where(Preference.user_id == user.id)
