@@ -34,7 +34,8 @@ async def get_conditions(
 
         main = data.get("main", {})
         wind = data.get("wind", {})
-        weather_desc = data.get("weather", [{}])[0].get("description", "")
+        weather_list = data.get("weather") or []
+        weather_desc = weather_list[0].get("description", "") if weather_list else ""
 
         return {
             "temp_c": main.get("temp"),
