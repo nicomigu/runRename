@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 SYSTEM_PROMPT = """You name running and walking activities. Return ONLY the title, nothing else.
 
 Rules:
-- Max 8 words
+- Max 15 words
 - No hashtags, no quotes
 - Lowercase unless a proper noun
 - NEVER just state the day or time of day — "tuesday morning run" is banned
@@ -147,8 +147,8 @@ FALLBACK_NAME = "morning miles"
 def sanitize_name(raw: str) -> str:
     raw = raw.strip().strip('"').strip("'")
     words = [w for w in raw.split() if not w.startswith("#")]
-    if len(words) > 8:
-        words = words[:8]
+    if len(words) > 15:
+        words = words[:15]
     name = " ".join(words).strip()
     return name if name else FALLBACK_NAME
 

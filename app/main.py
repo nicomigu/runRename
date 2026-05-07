@@ -16,6 +16,10 @@ from app.db import engine
 from app.dependencies import serializer, MAX_SESSION_AGE
 from app.routes import auth, webhook, dashboard, payment, admin
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s %(name)s: %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 
