@@ -22,6 +22,7 @@ async def test_get_conditions_empty_latlng(mock_http_client: httpx.AsyncClient):
     assert result is None
 
 
-async def test_get_conditions_no_date(mock_http_client: httpx.AsyncClient):
+async def test_get_conditions_no_date_still_works(mock_http_client: httpx.AsyncClient):
     result = await get_conditions([-33.8, 151.2], None, mock_http_client)
-    assert result is None
+    assert result is not None
+    assert result["temp_c"] == 14.5

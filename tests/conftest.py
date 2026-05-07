@@ -85,12 +85,9 @@ INTERVAL_ACTIVITY = {
 }
 
 WEATHER_RESPONSE = {
-    "data": [{
-        "temp": 14.5,
-        "humidity": 82,
-        "wind_speed": 3.1,
-        "weather": [{"description": "light rain"}],
-    }],
+    "main": {"temp": 14.5, "humidity": 82},
+    "wind": {"speed": 3.1},
+    "weather": [{"description": "light rain"}],
 }
 
 
