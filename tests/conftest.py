@@ -85,9 +85,12 @@ INTERVAL_ACTIVITY = {
 }
 
 WEATHER_RESPONSE = {
-    "main": {"temp": 14.5, "humidity": 82},
-    "wind": {"speed": 3.1},
-    "weather": [{"description": "light rain"}],
+    "current": {
+        "temperature_2m": 14.5,
+        "relative_humidity_2m": 82,
+        "wind_speed_10m": 3.1,
+        "weather_code": 63,
+    }
 }
 
 
@@ -119,7 +122,7 @@ def _mock_handler(request: httpx.Request, token_response: dict) -> httpx.Respons
             return httpx.Response(200, json=EASY_RUN_ACTIVITY)
         if request.method == "PUT":
             return httpx.Response(200, json={"id": 999, "name": "Updated"})
-    if "openweathermap.org" in url:
+    if "open-meteo.com" in url:
         return httpx.Response(200, json=WEATHER_RESPONSE)
     return httpx.Response(404, json={"error": "not found"})
 
