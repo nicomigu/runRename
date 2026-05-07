@@ -108,9 +108,7 @@ async def rename_activity(
     workout_name = parse_workout_from_laps(laps)
 
     start_latlng = activity_data.get("start_latlng")
-    start_date = activity_data.get("start_date")
-
-    weather = await weather_service.get_conditions(start_latlng, start_date, client)
+    weather = await weather_service.get_conditions(start_latlng, client)
 
     pref_result = await db.execute(
         select(Preference).where(Preference.user_id == user.id)
