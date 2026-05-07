@@ -213,7 +213,7 @@ def test_build_description_block_empty():
     ('"Rainy dawn miles"', "Rainy dawn miles"),
     ("'foggy morning run'", "foggy morning run"),
     ("  sunrise shuffle  ", "sunrise shuffle"),
-    ("one two three four five six seven eight nine ten", "one two three four five six seven eight"),
+    ("one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen", "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen"),
     ("#running #morning just a run", "just a run"),
     ("#hashtag #only", FALLBACK_NAME),
     ("", FALLBACK_NAME),

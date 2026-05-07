@@ -126,6 +126,7 @@ async def rename_activity(
         raw_context = context
 
     desc_block = claude_service.build_description_block(context)
+    logger.info("Description block for activity %s: %r", activity_id, desc_block or "(empty)")
     existing_desc = activity_data.get("description") or ""
     if desc_block:
         separator = "\n\n───\n" if existing_desc.strip() else ""
