@@ -12,7 +12,6 @@ WEATHER_URL = "https://api.openweathermap.org/data/2.5/weather"
 
 async def get_conditions(
     start_latlng: list[float] | None,
-    start_date: str | None,
     client: httpx.AsyncClient,
 ) -> dict | None:
     if not start_latlng or len(start_latlng) < 2:
