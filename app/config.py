@@ -4,13 +4,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     STRAVA_CLIENT_ID: str
     STRAVA_CLIENT_SECRET: str
     STRAVA_VERIFY_TOKEN: str
     ANTHROPIC_API_KEY: str
-    OPENWEATHERMAP_KEY: str
     LEMON_SQUEEZY_KEY: str
     DATABASE_URL: str
     ADMIN_SECRET: str

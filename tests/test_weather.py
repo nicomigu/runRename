@@ -9,7 +9,7 @@ async def test_get_conditions_success(mock_http_client: httpx.AsyncClient):
     assert result is not None
     assert result["temp_c"] == 14.5
     assert result["humidity"] == 82
-    assert result["description"] == "light rain"
+    assert result["description"] == "rain"
 
 
 async def test_get_conditions_no_latlng(mock_http_client: httpx.AsyncClient):
