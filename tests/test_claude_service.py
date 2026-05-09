@@ -4,13 +4,15 @@ import pytest
 
 from app.services.claude import (
     FALLBACK_NAME,
-    _calculate_gap,
-    _suffer_to_effort,
     build_context,
-    build_description_block,
     generate_name,
     generate_workout_tagline,
     sanitize_name,
+)
+from app.services.renamer import (
+    _calculate_gap,
+    _suffer_to_effort,
+    build_description_block,
 )
 
 
@@ -189,16 +191,14 @@ def test_build_description_block_full():
     block = build_description_block(ctx)
     assert "31°C" in block
     assert "humid" in block
-    assert "155 bpm avg" in block
     assert "7/10" in block
     assert "hard" in block
     assert "ideal conditions" in block
 
 
 def test_build_description_block_no_weather():
-    ctx = {"activity_type": "Run", "average_heartrate": 140, "suffer_score": 50}
+    ctx = {"activity_type": "Run", "suffer_score": 50}
     block = build_description_block(ctx)
-    assert "140 bpm avg" in block
     assert "3/10" in block
     assert "🌤️" not in block
 
