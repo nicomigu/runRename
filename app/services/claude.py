@@ -114,7 +114,7 @@ def build_context(activity_data: dict, weather: dict | None) -> dict:
         "duration_min": duration_min,
         "pace_min_per_km": pace_min_per_km,
         "average_heartrate": activity_data.get("average_heartrate"),
-        "suffer_score": activity_data.get("suffer_score"),
+        "elevation_gain": activity_data.get("total_elevation_gain"),
     }
 
     if weather:
