@@ -4,13 +4,16 @@ import pytest
 
 from app.services.claude import (
     FALLBACK_NAME,
-    _calculate_gap,
-    _suffer_to_effort,
     build_context,
-    build_description_block,
     generate_name,
     generate_workout_tagline,
     sanitize_name,
+)
+from app.services.renamer import (
+    _calculate_gap,
+    _conditions_difficulty,
+    _weather_penalty,
+    build_description_block,
 )
 
 
@@ -21,7 +24,7 @@ def test_build_context_with_weather():
         "distance": 10000,
         "moving_time": 3000,
         "average_heartrate": 145,
-        "suffer_score": 50,
+        "total_elevation_gain": 120,
     }
     weather = {"temp_c": 14.5, "humidity": 82, "description": "light rain"}
 
@@ -142,19 +145,41 @@ async def test_generate_workout_tagline_fallback_on_empty():
     assert name == "4x1k -- 60s rest"
 
 
-@pytest.mark.parametrize("suffer,expected_score,expected_label", [
-    (10, 2, "chill"),
-    (40, 3, "easy"),
-    (65, 5, "moderate"),
-    (90, 6, "solid"),
-    (130, 7, "hard"),
-    (180, 9, "brutal"),
-    (250, 10, "death"),
-])
-def test_suffer_to_effort(suffer, expected_score, expected_label):
-    score, label = _suffer_to_effort(suffer)
-    assert score == expected_score
-    assert label == expected_label
+def test_weather_penalty_hot():
+    penalty = _weather_penalty({"temp_c": 33, "humidity": 80, "wind_speed_ms": 1})
+    assert penalty > 25
+
+def test_weather_penalty_cool_windy():
+    penalty = _weather_penalty({"temp_c": 8, "humidity": 70, "wind_speed_ms": 4.2, "description": "light rain"})
+    assert penalty > 5
+
+def test_weather_penalty_ideal():
+    penalty = _weather_penalty({"temp_c": 14, "humidity": 50, "wind_speed_ms": 1})
+    assert penalty < 2
+
+def test_weather_penalty_none():
+    assert _weather_penalty(None) == 0.0
+
+def test_conditions_difficulty_none_when_ideal():
+    assert _conditions_difficulty({"temp_c": 14, "humidity": 50, "wind_speed_ms": 1}, None) is None
+
+def test_conditions_difficulty_noticeable():
+    result = _conditions_difficulty({"temp_c": 8, "humidity": 70, "wind_speed_ms": 4.2, "description": "light rain"}, None)
+    assert result is not None
+    score, label = result
+    assert score == 4
+    assert label == "noticeable"
+
+def test_conditions_difficulty_brutal():
+    result = _conditions_difficulty({"temp_c": 35, "humidity": 85, "wind_speed_ms": 5}, None)
+    assert result is not None
+    score, label = result
+    assert score == 10
+    assert label == "brutal"
+
+def test_conditions_difficulty_with_elevation():
+    result = _conditions_difficulty({"temp_c": 14, "humidity": 50, "wind_speed_ms": 1}, 500)
+    assert result is not None
 
 
 def test_calculate_gap_hot_and_humid():
@@ -183,24 +208,20 @@ def test_build_description_block_full():
         "activity_type": "Run",
         "pace_min_per_km": "5:23",
         "average_heartrate": 155,
-        "suffer_score": 145,
         "weather": {"temp_c": 31, "description": "humid", "humidity": 75, "wind_speed_ms": 2},
     }
     block = build_description_block(ctx)
     assert "31°C" in block
     assert "humid" in block
-    assert "155 bpm avg" in block
-    assert "7/10" in block
-    assert "hard" in block
+    assert "conditions" in block
     assert "ideal conditions" in block
 
 
 def test_build_description_block_no_weather():
-    ctx = {"activity_type": "Run", "average_heartrate": 140, "suffer_score": 50}
+    ctx = {"activity_type": "Run"}
     block = build_description_block(ctx)
-    assert "140 bpm avg" in block
-    assert "3/10" in block
     assert "🌤️" not in block
+    assert "conditions" not in block
 
 
 def test_build_description_block_empty():

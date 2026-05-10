@@ -13,6 +13,111 @@ from app.services import strava, weather as weather_service
 logger = logging.getLogger(__name__)
 
 
+def _weather_penalty(weather: dict | None) -> float:
+    if not weather:
+        return 0.0
+
+    temp = weather.get("temp_c")
+    if temp is None:
+        return 0.0
+
+    penalty_pct = 0.0
+
+    if temp > 15:
+        excess = temp - 15
+        penalty_pct += excess * 1.5
+        if temp > 25:
+            penalty_pct += (temp - 25) * 0.5
+    elif temp < 10:
+        penalty_pct += (10 - temp) * 0.4
+        if temp < 0:
+            penalty_pct += abs(temp) * 0.3
+
+    humidity = weather.get("humidity")
+    if humidity and humidity > 60 and temp > 20:
+        penalty_pct += (humidity - 60) * 0.1
+
+    wind_speed = weather.get("wind_speed_ms")
+    if wind_speed and wind_speed > 2:
+        penalty_pct += (wind_speed - 2) * 1.0
+
+    description = (weather.get("description") or "").lower()
+    if "rain" in description or "drizzle" in description:
+        penalty_pct += 3.0
+    if "snow" in description or "sleet" in description:
+        penalty_pct += 5.0
+
+    return penalty_pct
+
+
+def _conditions_difficulty(weather: dict | None, elevation_gain: float | None) -> tuple[int, str] | None:
+    penalty = _weather_penalty(weather)
+
+    if elevation_gain and elevation_gain > 100:
+        penalty += (elevation_gain - 100) * 0.02
+
+    if penalty < 2:
+        return None
+    if penalty < 5:
+        return 2, "mild"
+    if penalty < 10:
+        return 4, "noticeable"
+    if penalty < 18:
+        return 6, "uncomfortable"
+    if penalty < 30:
+        return 8, "tough"
+    return 10, "brutal"
+
+
+def _calculate_gap(pace_str: str | None, weather: dict | None) -> str | None:
+    if not pace_str or not weather:
+        return None
+
+    penalty_pct = _weather_penalty(weather)
+    if penalty_pct < 2:
+        return None
+
+    parts = pace_str.split(":")
+    if len(parts) != 2:
+        return None
+    pace_seconds = int(parts[0]) * 60 + int(parts[1])
+
+    ideal_seconds = pace_seconds / (1 + penalty_pct / 100)
+    ideal_min = int(ideal_seconds // 60)
+    ideal_sec = int(ideal_seconds % 60)
+    return f"{ideal_min}:{ideal_sec:02d}"
+
+
+def build_description_block(context: dict) -> str:
+    parts = []
+
+    weather = context.get("weather")
+    if weather and isinstance(weather, dict):
+        weather_bits = []
+        if weather.get("temp_c") is not None:
+            weather_bits.append(f"{weather['temp_c']}°C")
+        if weather.get("description"):
+            weather_bits.append(weather["description"])
+        if weather.get("humidity") is not None:
+            weather_bits.append(f"{weather['humidity']}% humidity")
+        if weather_bits:
+            parts.append(f"🌤️ {', '.join(weather_bits)}")
+
+    conditions = _conditions_difficulty(weather, context.get("elevation_gain"))
+    if conditions:
+        score, label = conditions
+        parts.append(f"🥵 conditions {score}/10 ({label})")
+
+    pace = context.get("pace_min_per_km")
+    gap = _calculate_gap(pace, weather)
+    if pace and gap:
+        parts.append(f"⚡ {pace}/km → ~{gap}/km in ideal conditions")
+    elif pace and weather and weather.get("temp_c") is not None:
+        parts.append(f"⚡ {pace}/km · near ideal conditions 👌")
+
+    return "\n".join(parts)
+
+
 def parse_workout_from_laps(laps: list[dict]) -> str | None:
     if len(laps) < 3:
         return None
@@ -126,12 +231,12 @@ async def rename_activity(
         new_name = await claude_service.generate_name(context, style)
         raw_context = context
 
-    desc_block = claude_service.build_description_block(context)
+    desc_block = build_description_block(context)
     logger.info("Description block for activity %s: %r", activity_id, desc_block or "(empty)")
     existing_desc = activity_data.get("description") or ""
     if desc_block:
         separator = "\n\n───\n" if existing_desc.strip() else ""
-        full_description = f"{existing_desc}{separator}{desc_block}"
+        full_description = f"{desc_block}{separator}{existing_desc}"
     else:
         full_description = None
 

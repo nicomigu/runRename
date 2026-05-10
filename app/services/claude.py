@@ -114,7 +114,7 @@ def build_context(activity_data: dict, weather: dict | None) -> dict:
         "duration_min": duration_min,
         "pace_min_per_km": pace_min_per_km,
         "average_heartrate": activity_data.get("average_heartrate"),
-        "suffer_score": activity_data.get("suffer_score"),
+        "elevation_gain": activity_data.get("total_elevation_gain"),
     }
 
     if weather:
@@ -215,97 +215,6 @@ async def generate_workout_tagline(workout_name: str, context: dict, style: str 
     logger.info("Workout tagline: %r for %s (style=%s)", tagline, workout_name, style)
     return f"{workout_name}. {tagline}"
 
-
-def _suffer_to_effort(suffer_score: int | float) -> tuple[int, str]:
-    if suffer_score <= 25:
-        return 2, "chill"
-    if suffer_score <= 50:
-        return 3, "easy"
-    if suffer_score <= 75:
-        return 5, "moderate"
-    if suffer_score <= 100:
-        return 6, "solid"
-    if suffer_score <= 150:
-        return 7, "hard"
-    if suffer_score <= 200:
-        return 9, "brutal"
-    return 10, "death"
-
-
-def _calculate_gap(pace_str: str | None, weather: dict | None) -> str | None:
-    if not pace_str or not weather:
-        return None
-
-    temp = weather.get("temp_c")
-    if temp is None:
-        return None
-
-    parts = pace_str.split(":")
-    if len(parts) != 2:
-        return None
-    pace_seconds = int(parts[0]) * 60 + int(parts[1])
-
-    penalty_pct = 0.0
-
-    if temp > 15:
-        excess = temp - 15
-        penalty_pct += excess * 1.5
-        if temp > 25:
-            penalty_pct += (temp - 25) * 0.5
-    elif temp < 0:
-        penalty_pct += abs(temp) * 0.5
-
-    humidity = weather.get("humidity")
-    if humidity and humidity > 60 and temp > 20:
-        penalty_pct += (humidity - 60) * 0.1
-
-    wind_speed = weather.get("wind_speed_ms")
-    if wind_speed and wind_speed > 3:
-        penalty_pct += (wind_speed - 3) * 0.8
-
-    if penalty_pct < 2:
-        return None
-
-    ideal_seconds = pace_seconds / (1 + penalty_pct / 100)
-    ideal_min = int(ideal_seconds // 60)
-    ideal_sec = int(ideal_seconds % 60)
-    return f"{ideal_min}:{ideal_sec:02d}"
-
-
-def build_description_block(context: dict) -> str:
-    parts = []
-
-    weather = context.get("weather")
-    if weather and isinstance(weather, dict):
-        weather_bits = []
-        if weather.get("temp_c") is not None:
-            weather_bits.append(f"{weather['temp_c']}°C")
-        if weather.get("description"):
-            weather_bits.append(weather["description"])
-        if weather.get("humidity") is not None:
-            weather_bits.append(f"{weather['humidity']}% humidity")
-        if weather_bits:
-            parts.append(f"🌤️ {', '.join(weather_bits)}")
-
-    hr = context.get("average_heartrate")
-    suffer = context.get("suffer_score")
-    hr_line_parts = []
-    if hr:
-        hr_line_parts.append(f"{int(hr)} bpm avg")
-    if suffer:
-        effort, label = _suffer_to_effort(suffer)
-        hr_line_parts.append(f"effort {effort}/10 ({label})")
-    if hr_line_parts:
-        parts.append(f"❤️ {' · '.join(hr_line_parts)}")
-
-    pace = context.get("pace_min_per_km")
-    gap = _calculate_gap(pace, weather)
-    if pace and gap:
-        parts.append(f"⚡ {pace}/km → ~{gap}/km in ideal conditions")
-    elif pace and weather and weather.get("temp_c") is not None:
-        parts.append(f"⚡ {pace}/km · near ideal conditions 👌")
-
-    return "\n".join(parts)
 
 
 def _format_context(context: dict) -> str:
