@@ -213,7 +213,11 @@ async def rename_activity(
     workout_name = parse_workout_from_laps(laps)
 
     start_latlng = activity_data.get("start_latlng")
-    weather = await weather_service.get_conditions(start_latlng, client)
+    weather = await weather_service.get_conditions(
+        start_latlng, client,
+        start_date=activity_data.get("start_date"),
+        elapsed_time=activity_data.get("elapsed_time") or activity_data.get("moving_time"),
+    )
     logger.info("Weather for activity %s (latlng=%s): %s", activity_id, start_latlng, weather)
 
     pref_result = await db.execute(
