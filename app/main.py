@@ -8,6 +8,7 @@ import httpx
 from fastapi import Cookie, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from itsdangerous import BadSignature, SignatureExpired
@@ -50,6 +51,7 @@ app.add_middleware(
 )
 
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
+app.mount("/static", StaticFiles(directory=str(Path(__file__).resolve().parent / "static")), name="static")
 
 app.include_router(auth.router)
 app.include_router(webhook.router)
