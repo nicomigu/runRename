@@ -2,7 +2,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 async def _purge_stale_cache() -> None:
-    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    cutoff = datetime.utcnow() - timedelta(days=7)
     async with async_session() as db:
         result = await db.execute(
             update(Activity)
