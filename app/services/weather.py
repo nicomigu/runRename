@@ -27,28 +27,28 @@ def _parse_activity_time(start_date: str) -> datetime:
     return datetime.fromisoformat(start_date.replace("Z", "+00:00")).astimezone(timezone.utc)
 
 
-def _hours_spanned(start: datetime, elapsed_seconds: int) -> list[int]:
+def _hours_spanned(start: datetime, elapsed_seconds: int) -> list[str]:
     end = start + timedelta(seconds=elapsed_seconds)
-    hours = set()
+    hours: list[str] = []
     current = start.replace(minute=0, second=0, microsecond=0)
     while current <= end:
-        hours.add(current.hour)
+        hours.append(current.strftime("%Y-%m-%dT%H:00"))
         current += timedelta(hours=1)
-    return sorted(hours)
+    return hours
 
 
-def _extract_hourly_values(hourly: dict, target_hours: list[int], field: str) -> list:
+def _extract_hourly_values(hourly: dict, target_hours: list[str], field: str) -> list:
     times = hourly.get("time", [])
     values = hourly.get(field, [])
+    target_set = set(target_hours)
     results = []
     for i, t in enumerate(times):
-        hour = int(t.split("T")[1].split(":")[0])
-        if hour in target_hours and i < len(values) and values[i] is not None:
+        if t in target_set and i < len(values) and values[i] is not None:
             results.append(values[i])
     return results
 
 
-def _aggregate_hourly(hourly: dict, target_hours: list[int]) -> dict | None:
+def _aggregate_hourly(hourly: dict, target_hours: list[str]) -> dict | None:
     temps = _extract_hourly_values(hourly, target_hours, "temperature_2m")
     humidities = _extract_hourly_values(hourly, target_hours, "relative_humidity_2m")
     winds = _extract_hourly_values(hourly, target_hours, "wind_speed_10m")
@@ -82,23 +82,28 @@ async def get_conditions(
     if not start_date:
         return await _get_current(lat, lon, client)
 
-    activity_start = _parse_activity_time(start_date)
+    try:
+        activity_start = _parse_activity_time(start_date)
+    except ValueError:
+        logger.warning("Could not parse start_date %r, falling back to current weather", start_date)
+        return await _get_current(lat, lon, client)
+
     target_hours = _hours_spanned(activity_start, elapsed_time or 3600)
-    date_str = activity_start.strftime("%Y-%m-%d")
+    start_date_str = target_hours[0][:10]
+    end_date_str = target_hours[-1][:10]
 
     now_utc = datetime.now(timezone.utc)
-    # Open-Meteo archive has ~5-day lag; use forecast API for recent activities
     if activity_start > now_utc - timedelta(days=5):
         url = FORECAST_URL
     else:
         url = ARCHIVE_URL
 
-    return await _get_hourly(lat, lon, date_str, target_hours, url, client)
+    return await _get_hourly(lat, lon, start_date_str, end_date_str, target_hours, url, client)
 
 
 async def _get_hourly(
-    lat: float, lon: float, date_str: str,
-    target_hours: list[int], url: str, client: httpx.AsyncClient,
+    lat: float, lon: float, start_date: str, end_date: str,
+    target_hours: list[str], url: str, client: httpx.AsyncClient,
 ) -> dict | None:
     try:
         response = await client.get(
@@ -106,8 +111,8 @@ async def _get_hourly(
             params={
                 "latitude": lat,
                 "longitude": lon,
-                "start_date": date_str,
-                "end_date": date_str,
+                "start_date": start_date,
+                "end_date": end_date,
                 "hourly": HOURLY_FIELDS,
                 "wind_speed_unit": "ms",
             },

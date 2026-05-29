@@ -27,6 +27,24 @@ async def test_get_conditions_multi_hour(mock_http_client: httpx.AsyncClient):
     assert result["description"] == "rain"
 
 
+async def test_get_conditions_no_start_date_falls_back_to_current(mock_http_client: httpx.AsyncClient):
+    result = await get_conditions([-33.8, 151.2], mock_http_client)
+    assert result is not None
+    assert result["temp_c"] == 16.0
+    assert result["humidity"] == 72
+    assert result["wind_speed_ms"] == 4.0
+    assert result["description"] == "partly cloudy"
+
+
+async def test_get_conditions_invalid_start_date_falls_back_to_current(mock_http_client: httpx.AsyncClient):
+    result = await get_conditions(
+        [-33.8, 151.2], mock_http_client,
+        start_date="not-a-date", elapsed_time=3000,
+    )
+    assert result is not None
+    assert result["temp_c"] == 16.0
+
+
 async def test_get_conditions_no_latlng(mock_http_client: httpx.AsyncClient):
     result = await get_conditions(None, mock_http_client)
     assert result is None

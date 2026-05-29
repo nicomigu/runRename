@@ -153,6 +153,15 @@ def _mock_handler(request: httpx.Request, token_response: dict) -> httpx.Respons
         if request.method == "PUT":
             return httpx.Response(200, json={"id": 999, "name": "Updated"})
     if "open-meteo.com" in url:
+        if "current=" in url:
+            return httpx.Response(200, json={
+                "current": {
+                    "temperature_2m": 16.0,
+                    "relative_humidity_2m": 72,
+                    "wind_speed_10m": 4.0,
+                    "weather_code": 2,
+                }
+            })
         return httpx.Response(200, json=WEATHER_RESPONSE)
     return httpx.Response(404, json={"error": "not found"})
 
