@@ -8,7 +8,7 @@ activity titles using weather, time of day, and effort data.
 - Python + FastAPI
 - PostgreSQL (Railway)
 - Deployed on Railway
-- Payments via Lemon Squeezy
+- Payments via Stripe
 - Claude Haiku for AI renaming
 - OpenWeatherMap for weather context
 
@@ -82,4 +82,5 @@ Only refactor for cleanliness, never change the core logic.
 
 STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET,
 ANTHROPIC_API_KEY, OPENWEATHERMAP_KEY,
-LEMON_SQUEEZY_KEY, DATABASE_URL, ADMIN_SECRET
+STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_ID,
+DATABASE_URL, ADMIN_SECRET

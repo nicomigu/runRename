@@ -4,6 +4,11 @@
 
 {% block content %}
 <div class="text-center mt-20">
+    {% if error == "invalid_beta_code" %}
+    <div class="bg-red-900/50 border border-red-700 text-red-300 rounded-lg px-6 py-4 mb-8 max-w-md mx-auto">
+        That beta code is invalid or has already been used.
+    </div>
+    {% endif %}
     <h1 class="text-4xl font-bold mb-4">Your runs deserve better names</h1>
     <p class="text-gray-400 text-lg mb-8 max-w-md mx-auto">
         RunRename turns "Morning Run" into something worth reading.

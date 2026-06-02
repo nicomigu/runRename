@@ -6,12 +6,13 @@ import httpx
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
 from app.dependencies import get_current_user, get_http_client
 from app.models.activity import Activity
+from app.models.beta_code import BetaCode
 from app.models.preference import Preference
 from app.models.user import User
 
@@ -99,6 +100,9 @@ async def delete_account(
 
     await db.execute(delete(Activity).where(Activity.user_id == user.id))
     await db.execute(delete(Preference).where(Preference.user_id == user.id))
+    await db.execute(
+        update(BetaCode).where(BetaCode.used_by == user.id).values(used_by=None)
+    )
     await db.delete(user)
     await db.commit()
 

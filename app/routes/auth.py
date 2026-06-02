@@ -1,6 +1,6 @@
 import secrets
 import time
-from datetime import UTC, datetime
+from datetime import datetime
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -34,11 +34,15 @@ async def strava_login(
     beta_code_value: str | None = None
     if beta:
         result = await db.execute(
-            select(BetaCode).where(BetaCode.code == beta, BetaCode.used_by.is_(None))
+            select(BetaCode).where(BetaCode.code == beta, BetaCode.used_at.is_(None))
         )
         code_row = result.scalar_one_or_none()
         if code_row:
             beta_code_value = code_row.code
+        else:
+            return RedirectResponse(
+                url="/?error=invalid_beta_code", status_code=302
+            )
 
     signed_state = state_serializer.dumps({
         "nonce": secrets.token_hex(16),
@@ -90,7 +94,7 @@ async def strava_callback(
     is_beta = False
     if beta_code_value:
         result = await db.execute(
-            select(BetaCode).where(BetaCode.code == beta_code_value, BetaCode.used_by.is_(None))
+            select(BetaCode).where(BetaCode.code == beta_code_value, BetaCode.used_at.is_(None))
         )
         beta_code_row = result.scalar_one_or_none()
         if beta_code_row:
@@ -122,7 +126,7 @@ async def strava_callback(
 
     if is_beta and beta_code_row:
         beta_code_row.used_by = user.id
-        beta_code_row.used_at = datetime.now(UTC)
+        beta_code_row.used_at = datetime.utcnow()
 
     await db.commit()
 
