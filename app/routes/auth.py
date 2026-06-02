@@ -1,5 +1,6 @@
 import secrets
 import time
+from datetime import UTC, datetime
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -12,6 +13,7 @@ import httpx
 from app.config import get_settings
 from app.db import get_db
 from app.dependencies import create_session_cookie, get_http_client
+from app.models.beta_code import BetaCode
 from app.models.user import User
 from app.models.preference import Preference
 
@@ -25,11 +27,22 @@ STATE_MAX_AGE = 600  # 10 minutes
 
 
 @router.get("/strava")
-async def strava_login(beta: str | None = Query(default=None)) -> RedirectResponse:
-    is_beta = bool(beta and settings.BETA_INVITE_CODE and beta == settings.BETA_INVITE_CODE)
+async def strava_login(
+    beta: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> RedirectResponse:
+    beta_code_value: str | None = None
+    if beta:
+        result = await db.execute(
+            select(BetaCode).where(BetaCode.code == beta, BetaCode.used_by.is_(None))
+        )
+        code_row = result.scalar_one_or_none()
+        if code_row:
+            beta_code_value = code_row.code
+
     signed_state = state_serializer.dumps({
         "nonce": secrets.token_hex(16),
-        "beta": is_beta,
+        "beta_code": beta_code_value,
         "issued_at": int(time.time()),
     })
     params = urlencode({
@@ -54,7 +67,7 @@ async def strava_callback(
     except (BadSignature, SignatureExpired):
         raise HTTPException(status_code=400, detail="Invalid or expired OAuth state")
 
-    is_beta = state_data.get("beta", False)
+    beta_code_value = state_data.get("beta_code")
 
     token_response = await client.post(
         STRAVA_TOKEN_URL,
@@ -73,6 +86,15 @@ async def strava_callback(
 
     result = await db.execute(select(User).where(User.strava_id == strava_id))
     user = result.scalar_one_or_none()
+
+    is_beta = False
+    if beta_code_value:
+        result = await db.execute(
+            select(BetaCode).where(BetaCode.code == beta_code_value, BetaCode.used_by.is_(None))
+        )
+        beta_code_row = result.scalar_one_or_none()
+        if beta_code_row:
+            is_beta = True
 
     if user is None:
         user = User(
@@ -97,6 +119,10 @@ async def strava_callback(
         if is_beta and not user.beta_user:
             user.beta_user = True
             user.auto_rename = True
+
+    if is_beta and beta_code_row:
+        beta_code_row.used_by = user.id
+        beta_code_row.used_at = datetime.now(UTC)
 
     await db.commit()
 
