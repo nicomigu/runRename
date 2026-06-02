@@ -88,6 +88,22 @@ def _calculate_gap(pace_str: str | None, weather: dict | None) -> str | None:
     return f"{ideal_min}:{ideal_sec:02d}"
 
 
+def _build_description_context(activity_data: dict, weather: dict | None) -> dict:
+    distance_km = round(activity_data.get("distance", 0) / 1000, 1)
+    pace_min_per_km = None
+    if distance_km > 0 and activity_data.get("moving_time"):
+        total_pace_sec = activity_data["moving_time"] / distance_km
+        pace_min_per_km = f"{int(total_pace_sec // 60)}:{int(total_pace_sec % 60):02d}"
+
+    context: dict = {
+        "pace_min_per_km": pace_min_per_km,
+        "elevation_gain": activity_data.get("total_elevation_gain"),
+    }
+    if weather:
+        context["weather"] = weather
+    return context
+
+
 def build_description_block(context: dict) -> str:
     parts = []
 
@@ -226,16 +242,17 @@ async def rename_activity(
     preference = pref_result.scalar_one_or_none()
     style = preference.style if preference else "poetic"
 
-    context = claude_service.build_context(activity_data, weather)
+    ai_context = claude_service.build_context(activity_data, weather)
 
     if workout_name:
-        new_name = await claude_service.generate_workout_tagline(workout_name, context, style)
-        raw_context = {"source": "structured_workout", "laps_count": len(laps), **context}
+        new_name = await claude_service.generate_workout_tagline(workout_name, ai_context, style)
+        raw_context = {"source": "structured_workout", "laps_count": len(laps), **ai_context}
     else:
-        new_name = await claude_service.generate_name(context, style)
-        raw_context = context
+        new_name = await claude_service.generate_name(ai_context, style)
+        raw_context = ai_context
 
-    desc_block = build_description_block(context)
+    desc_context = _build_description_context(activity_data, weather)
+    desc_block = build_description_block(desc_context)
     logger.info("Description block for activity %s: %r", activity_id, desc_block or "(empty)")
     existing_desc = activity_data.get("description") or ""
     if desc_block:
