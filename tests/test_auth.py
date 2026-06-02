@@ -105,7 +105,8 @@ async def test_callback_without_beta_code(client: AsyncClient, db: AsyncSession)
 
 
 async def test_callback_with_already_used_code(client: AsyncClient, db: AsyncSession, test_user: User):
-    beta = BetaCode(code="USED-CODE", used_by=test_user.id)
+    from datetime import datetime
+    beta = BetaCode(code="USED-CODE", used_by=test_user.id, used_at=datetime.utcnow())
     db.add(beta)
     await db.commit()
 

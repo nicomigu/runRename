@@ -34,7 +34,7 @@ async def strava_login(
     beta_code_value: str | None = None
     if beta:
         result = await db.execute(
-            select(BetaCode).where(BetaCode.code == beta, BetaCode.used_by.is_(None))
+            select(BetaCode).where(BetaCode.code == beta, BetaCode.used_at.is_(None))
         )
         code_row = result.scalar_one_or_none()
         if code_row:
@@ -90,7 +90,7 @@ async def strava_callback(
     is_beta = False
     if beta_code_value:
         result = await db.execute(
-            select(BetaCode).where(BetaCode.code == beta_code_value, BetaCode.used_by.is_(None))
+            select(BetaCode).where(BetaCode.code == beta_code_value, BetaCode.used_at.is_(None))
         )
         beta_code_row = result.scalar_one_or_none()
         if beta_code_row:
