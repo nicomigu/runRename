@@ -149,11 +149,8 @@ async def test_strava_login_with_valid_beta_code(client: AsyncClient, db: AsyncS
 
 async def test_strava_login_with_invalid_beta_code(client: AsyncClient):
     response = await client.get("/auth/strava?beta=WRONG", follow_redirects=False)
-    location = response.headers["location"]
-    parsed = urlparse(location)
-    qs = parse_qs(parsed.query)
-    state_data = state_serializer.loads(qs["state"][0], max_age=60)
-    assert state_data["beta_code"] is None
+    assert response.status_code == 302
+    assert response.headers["location"] == "/?error=invalid_beta_code"
 
 
 async def test_callback_beta_applied_on_repeat_login(

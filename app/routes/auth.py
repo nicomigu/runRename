@@ -39,6 +39,10 @@ async def strava_login(
         code_row = result.scalar_one_or_none()
         if code_row:
             beta_code_value = code_row.code
+        else:
+            return RedirectResponse(
+                url="/?error=invalid_beta_code", status_code=302
+            )
 
     signed_state = state_serializer.dumps({
         "nonce": secrets.token_hex(16),

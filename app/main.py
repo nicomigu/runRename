@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import httpx
-from fastapi import Cookie, FastAPI, Request
+from fastapi import Cookie, FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -83,14 +83,18 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 
 
 @app.get("/", response_class=HTMLResponse)
-async def landing(request: Request, session: str | None = Cookie(default=None)):
+async def landing(
+    request: Request,
+    session: str | None = Cookie(default=None),
+    error: str | None = Query(default=None),
+):
     if session:
         try:
             serializer.loads(session, max_age=MAX_SESSION_AGE)
             return RedirectResponse(url="/dashboard", status_code=302)
         except (BadSignature, SignatureExpired):
             pass
-    return templates.TemplateResponse(request, "landing.html", context={"user": None})
+    return templates.TemplateResponse(request, "landing.html", context={"user": None, "error": error})
 
 
 @app.get("/privacy", response_class=HTMLResponse)
