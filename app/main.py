@@ -2,6 +2,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -10,11 +11,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import update
 
 from itsdangerous import BadSignature, SignatureExpired
 
-from app.db import engine
+from app.db import engine, async_session
 from app.dependencies import serializer, MAX_SESSION_AGE
+from app.models.activity import Activity
 from app.routes import auth, webhook, dashboard, payment, admin
 
 logging.basicConfig(
@@ -24,9 +27,23 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+async def _purge_stale_cache() -> None:
+    cutoff = datetime.utcnow() - timedelta(days=7)
+    async with async_session() as db:
+        result = await db.execute(
+            update(Activity)
+            .where(Activity.created_at < cutoff, Activity.raw_context.isnot(None))
+            .values(raw_context=None)
+        )
+        if result.rowcount:
+            await db.commit()
+            logger.info("Purged raw_context from %d activities older than 7 days", result.rowcount)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.http_client = httpx.AsyncClient()
+    await _purge_stale_cache()
     yield
     tasks = webhook._background_tasks.copy()
     if tasks:
@@ -74,6 +91,11 @@ async def landing(request: Request, session: str | None = Cookie(default=None)):
         except (BadSignature, SignatureExpired):
             pass
     return templates.TemplateResponse(request, "landing.html", context={"user": None})
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy(request: Request):
+    return templates.TemplateResponse(request, "privacy.html", context={"user": None})
 
 
 @app.get("/health")

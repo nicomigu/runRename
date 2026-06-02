@@ -9,6 +9,11 @@
         RunRename turns "Morning Run" into something worth reading.
         Weather, effort, time of day — all woven into a title that fits.
     </p>
+    <div class="max-w-sm mx-auto mb-6 text-gray-500 text-xs leading-relaxed">
+        By connecting, RunRename will read your activity data (name, distance, time, location, laps)
+        to generate a new title. We don't store raw data beyond 7 days.
+        <a href="/privacy" class="text-orange-500 hover:underline">Privacy Policy</a>
+    </div>
     <a href="/auth/strava" class="inline-block hover:opacity-90 transition">
         <img src="/static/img/btn_strava_connect_orange.svg" alt="Connect with Strava" class="h-12">
     </a>
@@ -17,8 +22,11 @@
         <p>"Two hours and a sunrise"</p>
         <p>"Foggy morning six before coffee"</p>
     </div>
-    <div class="mt-16">
-        <img src="/static/img/powered_by_strava_white.svg" alt="Powered by Strava" class="h-8 mx-auto opacity-60">
+    <div class="mt-16 space-y-3">
+        <img src="/static/img/powered_by_strava_white.svg" alt="Powered by Strava" class="h-8 mx-auto">
+        <p class="text-gray-600 text-xs">
+            <a href="/privacy" class="hover:text-gray-400">Privacy Policy</a>
+        </p>
     </div>
 </div>
 {% endblock %}

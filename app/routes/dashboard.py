@@ -1,16 +1,21 @@
 from pathlib import Path
 
+import logging
+
+import httpx
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_http_client
 from app.models.activity import Activity
 from app.models.preference import Preference
 from app.models.user import User
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
@@ -76,3 +81,27 @@ async def update_style(
         db.add(Preference(user_id=user.id, style=style))
     await db.commit()
     return RedirectResponse(url="/dashboard", status_code=303)
+
+
+@router.post("/delete-account")
+async def delete_account(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    client: httpx.AsyncClient = Depends(get_http_client),
+):
+    try:
+        await client.post(
+            "https://www.strava.com/oauth/deauthorize",
+            params={"access_token": user.access_token},
+        )
+    except Exception:
+        logger.warning("Failed to deauthorize with Strava for user %s", user.strava_id)
+
+    await db.execute(delete(Activity).where(Activity.user_id == user.id))
+    await db.execute(delete(Preference).where(Preference.user_id == user.id))
+    await db.delete(user)
+    await db.commit()
+
+    response = RedirectResponse(url="/", status_code=303)
+    response.delete_cookie("session")
+    return response
