@@ -15,22 +15,23 @@ SYSTEM_PROMPT = """You name running and walking activities. Return ONLY the titl
 Rules:
 - Max 15 words
 - No hashtags, no quotes
-- Lowercase unless a proper noun
-- NEVER just state the day or time of day — "tuesday morning run" is banned
-- Think storytelling, metaphor, inner monologue, or absurd humor
-- The name should feel like a chapter title, not a weather report
+- Emojis welcome (1-2 max, at the end)
+- Playful, energetic, like texting a friend about your run
+- Think puns, inner monologue, absurd humor, or dramatic flair
+- NEVER just state the day or time — "tuesday morning run" is banned
+- The name should make someone smile when scrolling
 - Surprise me. Two runs in the same conditions should get wildly different names
 
 Examples of great names:
-- "the great pursuit of the perfect lunch"
+- "the drizzle had better plans 🌧️"
 - "legs wrote a complaint letter today"
-- "chasing a cloud that didn't exist"
+- "running late? more like running great 🏃‍♂️💨"
 - "someone lied about the distance"
-- "victory lap, audience of pigeons"
-- "the one where i forgot to stop"
-- "a negotiation between me and gravity"
-- "three minutes of pure ambition"
 - "plot twist: the hill won"
+- "a negotiation between me and gravity"
+- "the sun chose violence today ☀️"
+- "sweating through monday's attitude"
+- "three minutes of pure ambition"
 
 Examples of BAD names (never do this):
 - "thursday morning jog" (just states time)
@@ -39,9 +40,9 @@ Examples of BAD names (never do this):
 """
 
 STYLE_HINTS = {
-    "poetic": "Lean poetic — metaphor, imagery, a runner's inner world.",
-    "funny": "Lean funny — self-deprecating, absurd, the kind of name that makes someone laugh scrolling Strava.",
-    "minimal": "Keep it very short and understated, 3-5 words max. Still clever.",
+    "poetic": "Lean poetic — metaphor, imagery, a runner's inner world. Still playful.",
+    "funny": "Lean funny — puns, self-deprecating, absurd. Make them laugh out loud.",
+    "minimal": "Keep it very short, 3-5 words max. Punchy and clever.",
 }
 
 ANGLES = [
@@ -98,23 +99,9 @@ def build_context(activity_data: dict, weather: dict | None) -> dict:
     else:
         time_of_day = "night"
 
-    distance_km = round(activity_data.get("distance", 0) / 1000, 1)
-    duration_min = round(activity_data.get("moving_time", 0) / 60)
-
-    pace_min_per_km = None
-    if distance_km > 0 and activity_data.get("moving_time"):
-        total_pace_sec = activity_data["moving_time"] / distance_km
-        pace_min_per_km = f"{int(total_pace_sec // 60)}:{int(total_pace_sec % 60):02d}"
-
     context = {
-        "activity_type": activity_data.get("type", "Run"),
         "time_of_day": time_of_day,
         "day_of_week": day_of_week,
-        "distance_km": distance_km,
-        "duration_min": duration_min,
-        "pace_min_per_km": pace_min_per_km,
-        "average_heartrate": activity_data.get("average_heartrate"),
-        "elevation_gain": activity_data.get("total_elevation_gain"),
     }
 
     if weather:
@@ -123,22 +110,23 @@ def build_context(activity_data: dict, weather: dict | None) -> dict:
     return context
 
 
-WORKOUT_PROMPT = """You add a short, witty tagline to a structured running workout title. You receive a workout name like "4x1k -- 60s rest" and some context. Return ONLY a short tagline (2-5 words), no quotes.
+WORKOUT_PROMPT = """You write a short, witty tagline about running conditions. Return ONLY the tagline, nothing else.
 
-The final title will be: "{workout_name}. {your tagline}"
+The tagline will be appended to a workout name, so describe the vibe or conditions, not the workout itself.
 
 Rules:
 - 2-5 words only
-- Capture the vibe or suffering of the workout
+- No quotes, no hashtags
+- Emojis welcome (1 max)
+- Capture the weather, the suffering, or the mood
 - Be creative, funny, or dramatic
-- No hashtags
 
 Examples:
-- "entering the pain cave"
-- "legs had opinions today"
-- "speed has a price"
-- "tuesday torture session"
-- "coach said easy"
+- "brutal heat edition 🔥"
+- "the drizzle approved"
+- "wind had other plans"
+- "sunrise tax included"
+- "sweat equity ☀️"
 """
 
 FALLBACK_NAME = "morning miles"
@@ -188,7 +176,6 @@ async def generate_name(context: dict, style: str = "poetic") -> str:
 async def generate_workout_tagline(workout_name: str, context: dict, style: str = "poetic") -> str:
     style_hint = STYLE_HINTS.get(style, STYLE_HINTS["poetic"])
     user_message = (
-        f"Workout: {workout_name}\n"
         f"Activity context:\n{_format_context(context)}\n\n"
         f"Style: {style_hint}"
     )

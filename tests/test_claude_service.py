@@ -23,19 +23,16 @@ def test_build_context_with_weather():
         "start_date": "2026-04-29T06:30:00Z",
         "distance": 10000,
         "moving_time": 3000,
-        "average_heartrate": 145,
-        "total_elevation_gain": 120,
     }
     weather = {"temp_c": 14.5, "humidity": 82, "description": "light rain"}
 
     ctx = build_context(activity, weather)
-    assert ctx["activity_type"] == "Run"
     assert ctx["time_of_day"] == "early morning"
     assert ctx["day_of_week"] == "Wednesday"
-    assert ctx["distance_km"] == 10.0
-    assert ctx["duration_min"] == 50
-    assert ctx["pace_min_per_km"] == "5:00"
     assert ctx["weather"]["description"] == "light rain"
+    assert "activity_type" not in ctx
+    assert "distance_km" not in ctx
+    assert "pace_min_per_km" not in ctx
 
 
 def test_build_context_without_weather():
@@ -46,9 +43,9 @@ def test_build_context_without_weather():
         "moving_time": 1800,
     }
     ctx = build_context(activity, None)
-    assert ctx["activity_type"] == "Walk"
     assert ctx["time_of_day"] == "evening"
     assert "weather" not in ctx
+    assert "activity_type" not in ctx
 
 
 def test_build_context_converts_timezone():
