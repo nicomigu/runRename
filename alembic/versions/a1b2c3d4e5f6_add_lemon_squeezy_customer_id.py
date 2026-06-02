@@ -1,4 +1,4 @@
-"""add lemon_squeezy_customer_id to users
+"""add stripe_customer_id to users
 
 Revision ID: a1b2c3d4e5f6
 Revises: 602accf8adde
@@ -18,8 +18,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column('users', sa.Column('lemon_squeezy_customer_id', sa.String(), nullable=True))
+    op.add_column('users', sa.Column('stripe_customer_id', sa.String(), nullable=True))
 
 
 def downgrade() -> None:
-    op.drop_column('users', 'lemon_squeezy_customer_id')
+    op.drop_column('users', 'stripe_customer_id')

@@ -1,6 +1,6 @@
 import secrets
 import time
-from datetime import UTC, datetime
+from datetime import datetime
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -122,7 +122,7 @@ async def strava_callback(
 
     if is_beta and beta_code_row:
         beta_code_row.used_by = user.id
-        beta_code_row.used_at = datetime.now(UTC)
+        beta_code_row.used_at = datetime.utcnow()
 
     await db.commit()
 
