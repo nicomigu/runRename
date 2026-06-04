@@ -1,7 +1,6 @@
 import hashlib
 import hmac
 import json
-import time
 
 import httpx
 import pytest
@@ -19,35 +18,22 @@ from tests.conftest import TestSession, _override_get_db
 
 settings = get_settings()
 
-WEBHOOK_SECRET = settings.STRIPE_WEBHOOK_SECRET
+WEBHOOK_SECRET = settings.LEMON_SQUEEZY_WEBHOOK_SECRET
 
 
-def _sign(body: bytes, timestamp: int | None = None) -> str:
-    ts = timestamp or int(time.time())
-    signed_payload = f"{ts}.{body.decode()}"
-    sig = hmac.new(WEBHOOK_SECRET.encode(), signed_payload.encode(), hashlib.sha256).hexdigest()
-    return f"t={ts},v1={sig}"
+def _sign(body: bytes) -> str:
+    return hmac.new(WEBHOOK_SECRET.encode(), body, hashlib.sha256).hexdigest()
 
 
-def _checkout_event(user_id: int, customer_id: str = "cus_test123") -> dict:
+def _subscription_event(event_name: str, user_id: int, customer_id: str = "12345", status: str = "active") -> dict:
     return {
-        "type": "checkout.session.completed",
-        "data": {
-            "object": {
-                "client_reference_id": str(user_id),
-                "metadata": {"user_id": str(user_id)},
-                "customer": customer_id,
-            }
+        "meta": {
+            "event_name": event_name,
+            "custom_data": {"user_id": str(user_id)},
         },
-    }
-
-
-def _subscription_event(event_type: str, customer_id: str, status: str = "active") -> dict:
-    return {
-        "type": event_type,
         "data": {
-            "object": {
-                "customer": customer_id,
+            "attributes": {
+                "customer_id": customer_id,
                 "status": status,
             }
         },
@@ -83,14 +69,14 @@ async def test_checkout_requires_auth(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_webhook_checkout_completed(client: AsyncClient, test_user: User):
-    payload = _checkout_event(test_user.id)
+async def test_webhook_subscription_created(client: AsyncClient, test_user: User):
+    payload = _subscription_event("subscription_created", test_user.id)
     body = json.dumps(payload).encode()
 
     resp = await client.post(
         "/payment/webhook",
         content=body,
-        headers={"stripe-signature": _sign(body), "content-type": "application/json"},
+        headers={"x-signature": _sign(body), "content-type": "application/json"},
     )
     assert resp.status_code == 200
     assert resp.json()["status"] == "ok"
@@ -99,22 +85,22 @@ async def test_webhook_checkout_completed(client: AsyncClient, test_user: User):
         result = await db.execute(select(User).where(User.id == test_user.id))
         user = result.scalar_one()
         assert user.subscribed is True
-        assert user.stripe_customer_id == "cus_test123"
+        assert user.lemon_squeezy_customer_id == "12345"
 
 
 @pytest.mark.asyncio
 async def test_webhook_subscription_updated_cancelled(client: AsyncClient, test_user: User, db: AsyncSession):
     test_user.subscribed = True
-    test_user.stripe_customer_id = "cus_cancel"
+    test_user.lemon_squeezy_customer_id = "12345"
     await db.commit()
 
-    payload = _subscription_event("customer.subscription.updated", "cus_cancel", status="canceled")
+    payload = _subscription_event("subscription_updated", test_user.id, status="cancelled")
     body = json.dumps(payload).encode()
 
     resp = await client.post(
         "/payment/webhook",
         content=body,
-        headers={"stripe-signature": _sign(body), "content-type": "application/json"},
+        headers={"x-signature": _sign(body), "content-type": "application/json"},
     )
     assert resp.status_code == 200
 
@@ -125,18 +111,18 @@ async def test_webhook_subscription_updated_cancelled(client: AsyncClient, test_
 
 
 @pytest.mark.asyncio
-async def test_webhook_subscription_deleted(client: AsyncClient, test_user: User, db: AsyncSession):
+async def test_webhook_subscription_cancelled(client: AsyncClient, test_user: User, db: AsyncSession):
     test_user.subscribed = True
-    test_user.stripe_customer_id = "cus_delete"
+    test_user.lemon_squeezy_customer_id = "12345"
     await db.commit()
 
-    payload = _subscription_event("customer.subscription.deleted", "cus_delete")
+    payload = _subscription_event("subscription_cancelled", test_user.id)
     body = json.dumps(payload).encode()
 
     resp = await client.post(
         "/payment/webhook",
         content=body,
-        headers={"stripe-signature": _sign(body), "content-type": "application/json"},
+        headers={"x-signature": _sign(body), "content-type": "application/json"},
     )
     assert resp.status_code == 200
 
@@ -144,24 +130,68 @@ async def test_webhook_subscription_deleted(client: AsyncClient, test_user: User
         result = await db2.execute(select(User).where(User.id == test_user.id))
         user = result.scalar_one()
         assert user.subscribed is False
+
+
+@pytest.mark.asyncio
+async def test_webhook_subscription_expired(client: AsyncClient, test_user: User, db: AsyncSession):
+    test_user.subscribed = True
+    test_user.lemon_squeezy_customer_id = "12345"
+    await db.commit()
+
+    payload = _subscription_event("subscription_expired", test_user.id)
+    body = json.dumps(payload).encode()
+
+    resp = await client.post(
+        "/payment/webhook",
+        content=body,
+        headers={"x-signature": _sign(body), "content-type": "application/json"},
+    )
+    assert resp.status_code == 200
+
+    async with TestSession() as db2:
+        result = await db2.execute(select(User).where(User.id == test_user.id))
+        user = result.scalar_one()
+        assert user.subscribed is False
+
+
+@pytest.mark.asyncio
+async def test_webhook_subscription_resumed(client: AsyncClient, test_user: User, db: AsyncSession):
+    test_user.subscribed = False
+    test_user.lemon_squeezy_customer_id = "12345"
+    await db.commit()
+
+    payload = _subscription_event("subscription_resumed", test_user.id)
+    body = json.dumps(payload).encode()
+
+    resp = await client.post(
+        "/payment/webhook",
+        content=body,
+        headers={"x-signature": _sign(body), "content-type": "application/json"},
+    )
+    assert resp.status_code == 200
+
+    async with TestSession() as db2:
+        result = await db2.execute(select(User).where(User.id == test_user.id))
+        user = result.scalar_one()
+        assert user.subscribed is True
 
 
 @pytest.mark.asyncio
 async def test_webhook_invalid_signature(client: AsyncClient, test_user: User):
-    payload = _checkout_event(test_user.id)
+    payload = _subscription_event("subscription_created", test_user.id)
     body = json.dumps(payload).encode()
 
     resp = await client.post(
         "/payment/webhook",
         content=body,
-        headers={"stripe-signature": "t=123,v1=bad", "content-type": "application/json"},
+        headers={"x-signature": "bad-signature", "content-type": "application/json"},
     )
     assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
 async def test_webhook_missing_signature(client: AsyncClient, test_user: User):
-    payload = _checkout_event(test_user.id)
+    payload = _subscription_event("subscription_created", test_user.id)
     body = json.dumps(payload).encode()
 
     resp = await client.post(
@@ -173,42 +203,45 @@ async def test_webhook_missing_signature(client: AsyncClient, test_user: User):
 
 
 @pytest.mark.asyncio
-async def test_webhook_expired_signature(client: AsyncClient, test_user: User):
-    payload = _checkout_event(test_user.id)
-    body = json.dumps(payload).encode()
-    old_timestamp = int(time.time()) - 600
-
-    resp = await client.post(
-        "/payment/webhook",
-        content=body,
-        headers={"stripe-signature": _sign(body, old_timestamp), "content-type": "application/json"},
-    )
-    assert resp.status_code == 401
-
-
-@pytest.mark.asyncio
 async def test_webhook_unknown_user(client: AsyncClient):
-    payload = _checkout_event(99999)
+    payload = _subscription_event("subscription_created", 99999)
     body = json.dumps(payload).encode()
 
     resp = await client.post(
         "/payment/webhook",
         content=body,
-        headers={"stripe-signature": _sign(body), "content-type": "application/json"},
+        headers={"x-signature": _sign(body), "content-type": "application/json"},
     )
     assert resp.status_code == 200
     assert resp.json()["status"] == "user_not_found"
 
 
 @pytest.mark.asyncio
-async def test_webhook_ignored_event(client: AsyncClient):
-    payload = {"type": "payment_intent.succeeded", "data": {"object": {}}}
+async def test_webhook_missing_user_id(client: AsyncClient):
+    payload = {
+        "meta": {"event_name": "subscription_created", "custom_data": {}},
+        "data": {"attributes": {"customer_id": "12345", "status": "active"}},
+    }
     body = json.dumps(payload).encode()
 
     resp = await client.post(
         "/payment/webhook",
         content=body,
-        headers={"stripe-signature": _sign(body), "content-type": "application/json"},
+        headers={"x-signature": _sign(body), "content-type": "application/json"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ignored"
+
+
+@pytest.mark.asyncio
+async def test_webhook_ignored_event(client: AsyncClient, test_user: User):
+    payload = _subscription_event("order_created", test_user.id)
+    body = json.dumps(payload).encode()
+
+    resp = await client.post(
+        "/payment/webhook",
+        content=body,
+        headers={"x-signature": _sign(body), "content-type": "application/json"},
     )
     assert resp.status_code == 200
     assert resp.json()["status"] == "ignored"

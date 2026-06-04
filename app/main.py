@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     await engine.dispose()
 
 
-app = FastAPI(title="RunRename", lifespan=lifespan)
+app = FastAPI(title="LogLine", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

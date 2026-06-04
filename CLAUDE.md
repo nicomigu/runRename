@@ -1,6 +1,6 @@
-# RunRename
+# LogLine
 
-AI-powered Strava activity renamer. Multi-user SaaS that generates creative
+AI-powered Strava activity renamer. "The story of your run." Multi-user SaaS that generates creative
 activity titles using weather, time of day, and effort data.
 
 ## Stack
@@ -8,7 +8,7 @@ activity titles using weather, time of day, and effort data.
 - Python + FastAPI
 - PostgreSQL (Railway)
 - Deployed on Railway
-- Payments via Stripe
+- Payments via Lemon Squeezy
 - Claude Haiku for AI renaming
 - OpenWeatherMap for weather context
 
@@ -82,5 +82,5 @@ Only refactor for cleanliness, never change the core logic.
 
 STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET,
 ANTHROPIC_API_KEY, OPENWEATHERMAP_KEY,
-STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_ID,
+LEMON_SQUEEZY_KEY, LEMON_SQUEEZY_WEBHOOK_SECRET, LEMON_SQUEEZY_STORE_ID, LEMON_SQUEEZY_VARIANT_ID,
 DATABASE_URL, ADMIN_SECRET
