@@ -1,18 +1,24 @@
+import os
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=os.getenv("ENV_FILE", ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     STRAVA_CLIENT_ID: str
     STRAVA_CLIENT_SECRET: str
     STRAVA_VERIFY_TOKEN: str
     ANTHROPIC_API_KEY: str
-    STRIPE_SECRET_KEY: str
-    STRIPE_WEBHOOK_SECRET: str = ""
-    STRIPE_PRICE_ID: str = ""
+    LEMON_SQUEEZY_KEY: str
+    LEMON_SQUEEZY_WEBHOOK_SECRET: str = ""
+    LEMON_SQUEEZY_STORE_ID: str = ""
+    LEMON_SQUEEZY_VARIANT_ID: str = ""
     DATABASE_URL: str
     ADMIN_SECRET: str
     BASE_URL: str = "http://localhost:8000"
