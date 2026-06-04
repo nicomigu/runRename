@@ -1,6 +1,6 @@
-# RunRename
+# LogLine
 
-AI-powered Strava activity renamer. Multi-user SaaS that generates creative
+AI-powered Strava activity renamer. "The story of your run." Multi-user SaaS that generates creative
 activity titles using weather, time of day, and effort data.
 
 ## Stack
