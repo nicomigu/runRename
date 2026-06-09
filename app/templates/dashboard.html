@@ -23,7 +23,7 @@
                     {% if not can_rename %}
                         bg-gray-700 text-gray-500 cursor-not-allowed
                     {% elif user.auto_rename %}
-                        bg-orange-600 hover:bg-orange-500 text-white
+                        bg-emerald-600 hover:bg-emerald-500 text-white
                     {% else %}
                         bg-gray-700 hover:bg-gray-600 text-gray-300
                     {% endif %}"
@@ -40,7 +40,7 @@
             <button type="submit" name="style" value="{{ s }}"
                     class="px-4 py-2 rounded-lg text-sm font-medium transition
                     {% if style == s %}
-                        bg-orange-600 text-white
+                        bg-emerald-600 text-white
                     {% else %}
                         bg-gray-800 text-gray-400 hover:bg-gray-700
                     {% endif %}">
@@ -54,7 +54,7 @@
 {% if not can_rename %}
 <div class="bg-gray-900 rounded-lg p-6 mb-6 text-center">
     <p class="text-gray-400 mb-3">Unlock auto-renaming with a subscription</p>
-    <a href="/payment/checkout" class="inline-block bg-orange-600 hover:bg-orange-500 text-white font-semibold px-5 py-2 rounded-lg transition text-sm">
+    <a href="/payment/checkout" class="inline-block bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-5 py-2 rounded-lg transition text-sm">
         Subscribe
     </a>
 </div>
@@ -67,7 +67,7 @@
         {% for a in activities %}
         <div class="bg-gray-900 rounded-lg p-4 flex justify-between items-center">
             <div>
-                <p class="text-orange-400 font-medium">{{ a.generated_name }}</p>
+                <p class="text-emerald-400 font-medium">{{ a.generated_name }}</p>
                 {% if a.original_name %}
                 <p class="text-xs text-gray-500">was: {{ a.original_name }}</p>
                 {% endif %}
