@@ -102,6 +102,16 @@ async def privacy(request: Request):
     return templates.TemplateResponse(request, "privacy.html", context={"user": None})
 
 
+@app.get("/terms", response_class=HTMLResponse)
+async def terms(request: Request):
+    return templates.TemplateResponse(request, "terms.html", context={"user": None})
+
+
+@app.get("/refund", response_class=HTMLResponse)
+async def refund(request: Request):
+    return templates.TemplateResponse(request, "refund.html", context={"user": None})
+
+
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
