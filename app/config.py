@@ -15,10 +15,9 @@ class Settings(BaseSettings):
     STRAVA_CLIENT_SECRET: str
     STRAVA_VERIFY_TOKEN: str
     ANTHROPIC_API_KEY: str
-    LEMON_SQUEEZY_KEY: str
-    LEMON_SQUEEZY_WEBHOOK_SECRET: str = ""
-    LEMON_SQUEEZY_STORE_ID: str = ""
-    LEMON_SQUEEZY_VARIANT_ID: str = ""
+    STRIPE_SECRET_KEY: str
+    STRIPE_WEBHOOK_SECRET: str = ""
+    STRIPE_PRICE_ID: str = ""
     DATABASE_URL: str
     ADMIN_SECRET: str
     BASE_URL: str = "http://localhost:8000"
