@@ -166,6 +166,8 @@ def _mock_handler(request: httpx.Request, token_response: dict) -> httpx.Respons
                 }
             })
         return httpx.Response(200, json=WEATHER_RESPONSE)
+    if "overpass-api.de" in url:
+        return httpx.Response(200, json={"elements": []})
     return httpx.Response(404, json={"error": "not found"})
 
 

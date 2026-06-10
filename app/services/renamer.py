@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 import httpx
@@ -8,6 +9,7 @@ from app.models.activity import Activity
 from app.models.preference import Preference
 from app.models.user import User
 from app.services import claude as claude_service
+from app.services import places as places_service
 from app.services import strava, weather as weather_service
 
 logger = logging.getLogger(__name__)
@@ -229,12 +231,18 @@ async def rename_activity(
     workout_name = parse_workout_from_laps(laps)
 
     start_latlng = activity_data.get("start_latlng")
-    weather = await weather_service.get_conditions(
-        start_latlng, client,
-        start_date=activity_data.get("start_date"),
-        elapsed_time=activity_data.get("elapsed_time") or activity_data.get("moving_time"),
+    polyline = (activity_data.get("map") or {}).get("summary_polyline")
+
+    weather, route_beats = await asyncio.gather(
+        weather_service.get_conditions(
+            start_latlng, client,
+            start_date=activity_data.get("start_date"),
+            elapsed_time=activity_data.get("elapsed_time") or activity_data.get("moving_time"),
+        ),
+        places_service.get_route_beats(polyline, client),
     )
     logger.info("Weather for activity %s (latlng=%s): %s", activity_id, start_latlng, weather)
+    logger.info("Route beats for activity %s: %s", activity_id, route_beats)
 
     pref_result = await db.execute(
         select(Preference).where(Preference.user_id == user.id)
@@ -242,7 +250,7 @@ async def rename_activity(
     preference = pref_result.scalar_one_or_none()
     style = preference.style if preference else "poetic"
 
-    ai_context = claude_service.build_context(activity_data, weather)
+    ai_context = claude_service.build_context(activity_data, weather, route_beats)
 
     if workout_name:
         new_name = await claude_service.generate_workout_tagline(workout_name, ai_context, style)
