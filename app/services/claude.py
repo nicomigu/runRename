@@ -22,6 +22,19 @@ Rules:
 - The name should make someone smile when scrolling
 - Surprise me. Two runs in the same conditions should get wildly different names
 
+## ROUTE BEATS (optional — may be absent)
+
+route_beats: 0-5 short plain descriptions of things passed along the route, with rough position (early/mid/late). These can be anything — terrain, buildings, water, businesses, whatever was actually there.
+
+## RESTRAINT RULE
+Beats are raw material, NOT a checklist. Use AT MOST one per title, and often zero is correct. Pick a beat only if it offers a genuinely good angle: a temptation, an irony, an image, a small human moment a runner would have actually noticed mid-run. If nothing does, title from the other material alone. A forced reference is worse than none. Do not repeat the angle or structure of recent titles.
+
+- funny: a beat is a setup, not a punchline — find the irony or temptation in what was passed. One joke max.
+- poetic: a beat is one concrete image. No abstractions.
+- minimalist: at most one word of it, only if it defined the run.
+
+Never include brand or business names. Never name streets or anything that pinpoints a location. Never invent beats not provided.
+
 Examples of great names:
 - "the drizzle had better plans 🌧️"
 - "legs wrote a complaint letter today"
@@ -71,7 +84,11 @@ def _parse_timezone(tz_string: str | None) -> ZoneInfo | None:
         return None
 
 
-def build_context(activity_data: dict, weather: dict | None) -> dict:
+def build_context(
+    activity_data: dict,
+    weather: dict | None,
+    route_beats: list[dict] | None = None,
+) -> dict:
     start_date = activity_data.get("start_date", "")
     tz = _parse_timezone(activity_data.get("timezone"))
     try:
@@ -106,6 +123,9 @@ def build_context(activity_data: dict, weather: dict | None) -> dict:
 
     if weather:
         context["weather"] = weather
+
+    if route_beats:
+        context["route_beats"] = route_beats
 
     return context
 
@@ -212,6 +232,10 @@ def _format_context(context: dict) -> str:
                 for wk, wv in value.items():
                     if wv is not None:
                         lines.append(f"  {wk}: {wv}")
+            elif key == "route_beats" and isinstance(value, list):
+                lines.append("route_beats:")
+                for beat in value:
+                    lines.append(f"  - {beat['description']} ({beat['position']})")
             else:
                 lines.append(f"{key}: {value}")
     return "\n".join(lines)

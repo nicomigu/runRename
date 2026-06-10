@@ -61,6 +61,36 @@ def test_build_context_converts_timezone():
     assert ctx["day_of_week"] == "Wednesday"
 
 
+def test_build_context_with_route_beats():
+    activity = {
+        "type": "Run",
+        "start_date": "2026-04-29T06:30:00Z",
+        "distance": 10000,
+        "moving_time": 3000,
+    }
+    beats = [
+        {"description": "a park", "position": "early"},
+        {"description": "a river", "position": "mid"},
+    ]
+    ctx = build_context(activity, None, route_beats=beats)
+    assert ctx["route_beats"] == beats
+    assert len(ctx["route_beats"]) == 2
+
+
+def test_build_context_without_route_beats():
+    activity = {
+        "type": "Run",
+        "start_date": "2026-04-29T06:30:00Z",
+        "distance": 10000,
+        "moving_time": 3000,
+    }
+    ctx = build_context(activity, None)
+    assert "route_beats" not in ctx
+
+    ctx2 = build_context(activity, None, route_beats=None)
+    assert "route_beats" not in ctx2
+
+
 def test_build_context_no_timezone_uses_utc():
     activity = {
         "type": "Run",
