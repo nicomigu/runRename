@@ -70,6 +70,9 @@ app.add_middleware(
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 app.mount("/static", StaticFiles(directory=str(Path(__file__).resolve().parent / "static")), name="static")
 
+from app.template_globals import register_globals
+register_globals(templates)
+
 app.include_router(auth.router)
 app.include_router(webhook.router)
 app.include_router(dashboard.router)

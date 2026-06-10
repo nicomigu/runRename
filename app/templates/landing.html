@@ -9,7 +9,7 @@
         That beta code is invalid or has already been used.
     </div>
     {% endif %}
-    <img src="/static/img/logline_logo.png" alt="LogLine — The Story of Your Run" class="h-40 mx-auto mb-6">
+    <img src="{{ static_url('img/logline_logo.png') }}" alt="LogLine — The Story of Your Run" class="h-40 mx-auto mb-6">
     <p class="text-gray-400 text-lg mb-8 max-w-md mx-auto">
         LogLine turns "Morning Run" into something worth reading.
         Weather, time of day, and location — all woven into a title that fits.
@@ -20,7 +20,7 @@
         <a href="/privacy" class="text-emerald-500 hover:underline">Privacy Policy</a>
     </div>
     <a href="/auth/strava" class="inline-block hover:opacity-90 transition">
-        <img src="/static/img/btn_strava_connect_orange.svg" alt="Connect with Strava" class="h-12">
+        <img src="{{ static_url('img/btn_strava_connect_orange.svg') }}" alt="Connect with Strava" class="h-12">
     </a>
     <div class="mt-12 text-gray-600 text-sm space-y-1">
         <p>"Humid monday shuffle, legs still waking"</p>
@@ -28,7 +28,7 @@
         <p>"Foggy morning six before coffee"</p>
     </div>
     <div class="mt-16 space-y-3">
-        <img src="/static/img/powered_by_strava_white.svg" alt="Powered by Strava" class="h-8 mx-auto">
+        <img src="{{ static_url('img/powered_by_strava_white.svg') }}" alt="Powered by Strava" class="h-8 mx-auto">
         <p class="text-gray-600 text-xs space-x-3">
             <a href="/terms" class="hover:text-gray-400">Terms of Service</a>
             <a href="/privacy" class="hover:text-gray-400">Privacy Policy</a>
