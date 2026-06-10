@@ -128,7 +128,7 @@ QUERY_TAGS = [
 
 
 def _build_overpass_query(lat: float, lon: float) -> str:
-    lines = [f"[out:json][timeout:8];", "("]
+    lines = ["[out:json][timeout:8];", "("]
     for tag_line in QUERY_TAGS:
         lines.append("  " + tag_line.format(r=SEARCH_RADIUS_M, lat=lat, lon=lon))
     lines.append(");")
@@ -192,8 +192,8 @@ async def get_route_beats(
 
     try:
         coords = decode_polyline(polyline)
-    except Exception:
-        logger.debug("Failed to decode polyline")
+    except (ValueError, IndexError) as exc:
+        logger.debug("Failed to decode polyline: %s", exc)
         return None
 
     if len(coords) < 2:
