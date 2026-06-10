@@ -18,6 +18,9 @@ settings = get_settings()
 logger = logging.getLogger(__name__)
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
 
+from app.template_globals import register_globals
+register_globals(templates)
+
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 

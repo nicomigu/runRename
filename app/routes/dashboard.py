@@ -18,8 +18,11 @@ from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
+from app.template_globals import register_globals
+
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
+register_globals(templates)
 
 
 @router.get("", response_class=HTMLResponse)
