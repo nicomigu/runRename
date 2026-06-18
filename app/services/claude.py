@@ -179,11 +179,11 @@ Examples:
 FALLBACK_NAME = "morning miles"
 
 
-def sanitize_name(raw: str) -> str:
+def sanitize_name(raw: str, max_words: int = 15) -> str:
     raw = raw.strip().strip('"').strip("'")
     words = [w for w in raw.split() if not w.startswith("#")]
-    if len(words) > 15:
-        words = words[:15]
+    if len(words) > max_words:
+        words = words[:max_words]
     name = " ".join(words).strip()
     return name if name else FALLBACK_NAME
 

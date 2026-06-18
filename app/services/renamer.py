@@ -253,19 +253,18 @@ async def rename_activity(
 
     ai_context = claude_service.build_context(activity_data, weather, route_beats)
 
-    recent_result = await db.execute(
-        select(Activity)
-        .where(Activity.user_id == user.id, Activity.generated_name.isnot(None))
-        .order_by(Activity.created_at.desc())
-        .limit(10)
-        .options(load_only(Activity.generated_name))
-    )
-    recent_titles = [row.generated_name for row in recent_result.scalars()]
-
     if workout_name:
         new_name = await claude_service.generate_workout_tagline(workout_name, ai_context, style)
         raw_context = {"source": "structured_workout", "laps_count": len(laps), **ai_context}
     else:
+        recent_result = await db.execute(
+            select(Activity)
+            .where(Activity.user_id == user.id, Activity.generated_name.isnot(None))
+            .order_by(Activity.created_at.desc())
+            .limit(10)
+            .options(load_only(Activity.generated_name))
+        )
+        recent_titles = [row.generated_name for row in recent_result.scalars()]
         new_name = await claude_service.generate_name(ai_context, style, recent_titles=recent_titles)
         raw_context = ai_context
 

@@ -139,6 +139,29 @@ async def test_generate_name_calls_anthropic():
     assert call_kwargs["max_tokens"] == 50
 
 
+async def test_generate_name_includes_recent_titles():
+    mock_response = AsyncMock()
+    mock_response.content = [AsyncMock(text="something brand new")]
+
+    mock_client = AsyncMock()
+    mock_client.messages.create = AsyncMock(return_value=mock_response)
+
+    recent = ["humidity soup", "the drizzle had plans", "legs filed a complaint"]
+
+    with patch("app.services.claude.anthropic.AsyncAnthropic", return_value=mock_client):
+        await generate_name(
+            {"time_of_day": "morning"},
+            "poetic",
+            recent_titles=recent,
+        )
+
+    call_kwargs = mock_client.messages.create.call_args.kwargs
+    user_msg = call_kwargs["messages"][0]["content"]
+    assert "Recent titles" in user_msg
+    for title in recent:
+        assert title in user_msg
+
+
 async def test_generate_workout_tagline():
     mock_response = AsyncMock()
     mock_response.content = [AsyncMock(text="entering the pain cave")]
