@@ -15,8 +15,9 @@ from sqlalchemy import update
 
 from itsdangerous import BadSignature, SignatureExpired
 
-from app.db import engine, async_session
+from app.db import Base, engine, async_session
 from app.dependencies import serializer, MAX_SESSION_AGE
+import app.models  # noqa: F401 — register all models with Base.metadata
 from app.models.activity import Activity
 from app.routes import auth, webhook, dashboard, payment, admin
 
@@ -43,7 +44,11 @@ async def _purge_stale_cache() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.http_client = httpx.AsyncClient()
-    await _purge_stale_cache()
+    if engine.url.drivername.startswith("sqlite"):
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    else:
+        await _purge_stale_cache()
     yield
     tasks = webhook._background_tasks.copy()
     if tasks:

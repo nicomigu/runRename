@@ -71,6 +71,33 @@ ANGLES = [
     "Name it like a plot twist happened mid-run",
     "Name it like you're narrating your inner monologue",
     "Name it like a fortune cookie that actually ran",
+    "Name it like a song title from a band that only runs",
+    "Name it like a diary entry you'd never show anyone",
+    "Name it like the run was a heist",
+    "Name it like your shoes are writing a review of you",
+    "Name it like a weather forecast written by someone who just ran in it",
+    "Name it like a voicemail you'd leave yourself at 5am",
+    "Name it like a negotiation between your brain and your body",
+    "Name it like a nature documentary about suburban wildlife",
+    "Name it like a recipe for the run you just had",
+    "Name it like a one-star review of the route",
+    "Name it like a motivational poster that's given up",
+    "Name it like a haiku that broke the rules",
+    "Name it from the perspective of someone watching you from a window",
+    "Name it like a loading screen tip for runners",
+]
+
+FOCUS_NUDGES = [
+    "Focus on the physical sensation — what did the body feel?",
+    "Focus on the mood — what was the emotional arc?",
+    "Ignore the weather entirely — find a different angle.",
+    "Focus on the time of day — what does this hour feel like?",
+    "Focus on the absurdity of choosing to do this voluntarily.",
+    "Focus on what you were probably thinking about mid-run.",
+    "Focus on the contrast between before and after the run.",
+    "Focus on the sounds — what did the run sound like?",
+    "Make it about the relationship between runner and road.",
+    "Focus on what you'd tell someone who asked how it went.",
 ]
 
 
@@ -152,29 +179,39 @@ Examples:
 FALLBACK_NAME = "morning miles"
 
 
-def sanitize_name(raw: str) -> str:
+def sanitize_name(raw: str, max_words: int = 15) -> str:
     raw = raw.strip().strip('"').strip("'")
     words = [w for w in raw.split() if not w.startswith("#")]
-    if len(words) > 15:
-        words = words[:15]
+    if len(words) > max_words:
+        words = words[:max_words]
     name = " ".join(words).strip()
     return name if name else FALLBACK_NAME
 
 
-async def generate_name(context: dict, style: str = "poetic") -> str:
+async def generate_name(
+    context: dict,
+    style: str = "poetic",
+    recent_titles: list[str] | None = None,
+) -> str:
     style_hint = STYLE_HINTS.get(style, STYLE_HINTS["poetic"])
     angle = random.choice(ANGLES)
+    nudge = random.choice(FOCUS_NUDGES)
 
     user_message = (
         f"Activity context:\n{_format_context(context)}\n\n"
         f"Style: {style_hint}\n"
-        f"Creative angle: {angle}"
+        f"Creative angle: {angle}\n"
+        f"Focus: {nudge}"
     )
+
+    if recent_titles:
+        titles_block = "\n".join(f"  - {t}" for t in recent_titles)
+        user_message += f"\n\nRecent titles (do NOT repeat these or their patterns):\n{titles_block}"
 
     try:
         client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
         response = await client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model="claude-sonnet-4-6-20260610",
             max_tokens=50,
             temperature=1.0,
             system=SYSTEM_PROMPT,
@@ -189,7 +226,7 @@ async def generate_name(context: dict, style: str = "poetic") -> str:
         return FALLBACK_NAME
 
     name = sanitize_name(response.content[0].text)
-    logger.info("Claude generated: %r (style=%s)", name, style)
+    logger.info("Claude generated: %r (style=%s, angle=%r)", name, style, angle)
     return name
 
 
@@ -203,7 +240,7 @@ async def generate_workout_tagline(workout_name: str, context: dict, style: str 
     try:
         client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
         response = await client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model="claude-sonnet-4-6-20260610",
             max_tokens=30,
             system=WORKOUT_PROMPT,
             messages=[{"role": "user", "content": user_message}],
