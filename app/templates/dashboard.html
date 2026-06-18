@@ -5,11 +5,11 @@
 {% block content %}
 <h1 class="text-2xl font-bold mb-6">Dashboard</h1>
 
-<div class="bg-gray-900 rounded-lg p-6 mb-6">
+<div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
     <div class="flex items-center justify-between mb-4">
         <div>
             <h2 class="text-lg font-semibold">Auto-rename</h2>
-            <p class="text-sm text-gray-400">
+            <p class="text-sm text-gray-500">
                 {% if can_rename %}
                     Automatically rename new activities
                 {% else %}
@@ -21,11 +21,11 @@
             <button type="submit"
                     class="px-4 py-2 rounded-lg text-sm font-medium transition
                     {% if not can_rename %}
-                        bg-gray-700 text-gray-500 cursor-not-allowed
+                        bg-gray-100 text-gray-400 cursor-not-allowed
                     {% elif user.auto_rename %}
                         bg-emerald-600 hover:bg-emerald-500 text-white
                     {% else %}
-                        bg-gray-700 hover:bg-gray-600 text-gray-300
+                        bg-gray-200 hover:bg-gray-300 text-gray-600
                     {% endif %}"
                     {% if not can_rename %}disabled{% endif %}>
                 {{ "On" if user.auto_rename else "Off" }}
@@ -42,7 +42,7 @@
                     {% if style == s %}
                         bg-emerald-600 text-white
                     {% else %}
-                        bg-gray-800 text-gray-400 hover:bg-gray-700
+                        bg-gray-100 text-gray-500 hover:bg-gray-200
                     {% endif %}">
                 {{ s|capitalize }}
             </button>
@@ -52,8 +52,8 @@
 </div>
 
 {% if not can_rename %}
-<div class="bg-gray-900 rounded-lg p-6 mb-6 text-center">
-    <p class="text-gray-400 mb-3">Unlock auto-renaming with a subscription</p>
+<div class="bg-white rounded-lg border border-gray-200 p-6 mb-6 text-center">
+    <p class="text-gray-500 mb-3">Unlock auto-renaming with a subscription</p>
     <a href="/payment/checkout" class="inline-block bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-5 py-2 rounded-lg transition text-sm">
         Subscribe
     </a>
@@ -65,31 +65,31 @@
     {% if activities %}
     <div class="space-y-3">
         {% for a in activities %}
-        <div class="bg-gray-900 rounded-lg p-4 flex justify-between items-center">
+        <div class="bg-white rounded-lg border border-gray-200 p-4 flex justify-between items-center">
             <div>
-                <p class="text-emerald-400 font-medium">{{ a.generated_name }}</p>
+                <p class="text-emerald-600 font-medium">{{ a.generated_name }}</p>
                 {% if a.original_name %}
-                <p class="text-xs text-gray-500">was: {{ a.original_name }}</p>
+                <p class="text-xs text-gray-400">was: {{ a.original_name }}</p>
                 {% endif %}
             </div>
-            <span class="text-xs text-gray-600">{{ a.created_at.strftime('%b %d') }}</span>
+            <span class="text-xs text-gray-400">{{ a.created_at.strftime('%b %d') }}</span>
         </div>
         {% endfor %}
     </div>
     {% else %}
-    <p class="text-gray-500 text-sm">No renamed activities yet. Go for a run!</p>
+    <p class="text-gray-400 text-sm">No renamed activities yet. Go for a run!</p>
     {% endif %}
 </div>
 
-<div class="mt-12 pt-8 border-t border-gray-800">
+<div class="mt-12 pt-8 border-t border-gray-200">
     <details class="text-sm">
-        <summary class="text-gray-600 cursor-pointer hover:text-gray-400">Delete account</summary>
-        <div class="mt-3 bg-gray-900 rounded-lg p-4">
-            <p class="text-gray-400 mb-3">This will permanently delete your account, all activity history, and revoke LogLine's access to your Strava account.</p>
+        <summary class="text-gray-400 cursor-pointer hover:text-gray-600">Delete account</summary>
+        <div class="mt-3 bg-white rounded-lg border border-gray-200 p-4">
+            <p class="text-gray-500 mb-3">This will permanently delete your account, all activity history, and revoke LogLine's access to your Strava account.</p>
             <form method="post" action="/dashboard/delete-account"
                   onsubmit="return confirm('Are you sure? This cannot be undone.')">
                 <button type="submit"
-                        class="bg-red-700 hover:bg-red-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+                        class="bg-red-600 hover:bg-red-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
                     Delete my account and data
                 </button>
             </form>

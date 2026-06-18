@@ -5,34 +5,33 @@
 {% block content %}
 <div class="text-center mt-20">
     {% if error == "invalid_beta_code" %}
-    <div class="bg-red-900/50 border border-red-700 text-red-300 rounded-lg px-6 py-4 mb-8 max-w-md mx-auto">
+    <div class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-6 py-4 mb-8 max-w-md mx-auto">
         That beta code is invalid or has already been used.
     </div>
     {% endif %}
     <img src="{{ static_url('img/logline_logo.svg') }}" alt="LogLine — The Story of Your Run" class="h-48 mx-auto mb-6">
-    <p class="text-gray-400 text-lg mb-8 max-w-md mx-auto">
+    <p class="text-gray-600 text-lg mb-8 max-w-md mx-auto">
         LogLine turns "Morning Run" into something worth reading.
         Weather, time of day, and location — all woven into a title that fits.
     </p>
-    <div class="max-w-sm mx-auto mb-6 text-gray-500 text-xs leading-relaxed">
+    <div class="max-w-sm mx-auto mb-6 text-gray-400 text-xs leading-relaxed">
         By connecting, LogLine will use your activity's weather, time of day, and location
         to generate a new title. We don't store raw data beyond 7 days.
-        <a href="/privacy" class="text-emerald-500 hover:underline">Privacy Policy</a>
+        <a href="/privacy" class="text-emerald-600 hover:underline">Privacy Policy</a>
     </div>
     <a href="/auth/strava" class="inline-block hover:opacity-90 transition">
         <img src="{{ static_url('img/btn_strava_connect_orange.svg') }}" alt="Connect with Strava" class="h-12">
     </a>
-    <div class="mt-12 text-gray-600 text-sm space-y-1">
+    <div class="mt-12 text-gray-400 text-sm space-y-1">
         <p>"Humid monday shuffle, legs still waking"</p>
         <p>"Two hours and a sunrise"</p>
         <p>"Foggy morning six before coffee"</p>
     </div>
     <div class="mt-16 space-y-3">
-        <img src="{{ static_url('img/powered_by_strava_white.svg') }}" alt="Powered by Strava" class="h-8 mx-auto">
-        <p class="text-gray-600 text-xs space-x-3">
-            <a href="/terms" class="hover:text-gray-400">Terms of Service</a>
-            <a href="/privacy" class="hover:text-gray-400">Privacy Policy</a>
-            <a href="/refund" class="hover:text-gray-400">Refund Policy</a>
+        <p class="text-gray-400 text-xs space-x-3">
+            <a href="/terms" class="hover:text-gray-600">Terms of Service</a>
+            <a href="/privacy" class="hover:text-gray-600">Privacy Policy</a>
+            <a href="/refund" class="hover:text-gray-600">Refund Policy</a>
         </p>
     </div>
 </div>
