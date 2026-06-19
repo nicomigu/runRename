@@ -135,7 +135,7 @@ async def test_generate_name_calls_anthropic():
     assert name == "Rainy dawn miles before work"
     mock_client.messages.create.assert_called_once()
     call_kwargs = mock_client.messages.create.call_args.kwargs
-    assert call_kwargs["model"] == "claude-sonnet-4-6-20260610"
+    assert call_kwargs["model"] == "claude-sonnet-4-6"
     assert call_kwargs["max_tokens"] == 50
 
 

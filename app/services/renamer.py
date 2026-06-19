@@ -285,7 +285,8 @@ async def rename_activity(
     )
 
     if activity_row:
-        activity_row.original_name = original_name
+        if not activity_row.original_name:
+            activity_row.original_name = original_name
         activity_row.generated_name = new_name
         activity_row.raw_context = raw_context
     else:
