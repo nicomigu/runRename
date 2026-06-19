@@ -1,7 +1,10 @@
+from unittest.mock import AsyncMock, patch
+
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.activity import Activity
 from app.models.beta_code import BetaCode
 from app.models.user import User
 
@@ -37,6 +40,55 @@ async def test_grant_beta_missing_secret(client: AsyncClient, test_user: User):
 async def test_grant_beta_unknown_user(client: AsyncClient):
     response = await client.post(
         "/admin/beta?strava_id=99999",
+        headers={"x-admin-secret": "test"},
+    )
+    assert response.status_code == 404
+
+
+async def test_rerename_success(client: AsyncClient, db: AsyncSession, test_user: User):
+    db.add(Activity(
+        user_id=test_user.id,
+        strava_activity_id=12345,
+        original_name="The Real Original",
+        generated_name="morning miles",
+        raw_context={"source": "fallback"},
+    ))
+    await db.commit()
+
+    with patch(
+        "app.services.claude.generate_name",
+        new_callable=AsyncMock,
+        return_value="the hill had other plans",
+    ):
+        response = await client.post(
+            "/admin/rerename?activity_id=12345",
+            headers={"x-admin-secret": "test"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["new_name"] == "the hill had other plans"
+
+    result = await db.execute(
+        select(Activity).where(Activity.strava_activity_id == 12345)
+    )
+    activity = result.scalar_one()
+    assert activity.generated_name == "the hill had other plans"
+    # re-renaming must not clobber the true original with the current Strava name
+    assert activity.original_name == "The Real Original"
+
+
+async def test_rerename_wrong_secret(client: AsyncClient):
+    response = await client.post(
+        "/admin/rerename?activity_id=12345",
+        headers={"x-admin-secret": "wrong"},
+    )
+    assert response.status_code == 403
+
+
+async def test_rerename_unknown_activity(client: AsyncClient):
+    response = await client.post(
+        "/admin/rerename?activity_id=77777",
         headers={"x-admin-secret": "test"},
     )
     assert response.status_code == 404

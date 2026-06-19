@@ -4,11 +4,15 @@ import secrets
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+import httpx
 
 from app.config import get_settings
 from app.db import get_db
+from app.dependencies import get_http_client
+from app.models.activity import Activity
 from app.models.beta_code import BetaCode
 from app.models.user import User
+from app.services import renamer
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 settings = get_settings()
@@ -37,6 +41,33 @@ async def grant_beta(
     await db.commit()
 
     return {"status": "ok", "user": user.name, "beta_user": True}
+
+
+@router.post("/rerename")
+async def rerename_activity(
+    activity_id: int = Query(..., description="Strava activity id to re-rename"),
+    x_admin_secret: str = Header(...),
+    db: AsyncSession = Depends(get_db),
+    http_client: httpx.AsyncClient = Depends(get_http_client),
+):
+    _check_admin(x_admin_secret)
+
+    result = await db.execute(
+        select(Activity).where(Activity.strava_activity_id == activity_id)
+    )
+    activity_row = result.scalar_one_or_none()
+    if activity_row is None:
+        raise HTTPException(status_code=404, detail="Activity not found")
+
+    result = await db.execute(select(User).where(User.id == activity_row.user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    new_name = await renamer.rename_activity(
+        activity_id, user, db, http_client, activity_row
+    )
+    return {"status": "ok", "activity_id": activity_id, "new_name": new_name}
 
 
 @router.post("/beta-codes")

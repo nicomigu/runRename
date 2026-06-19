@@ -211,7 +211,7 @@ async def generate_name(
     try:
         client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
         response = await client.messages.create(
-            model="claude-sonnet-4-6-20260610",
+            model="claude-sonnet-4-6",
             max_tokens=50,
             temperature=1.0,
             system=SYSTEM_PROMPT,
@@ -240,7 +240,7 @@ async def generate_workout_tagline(workout_name: str, context: dict, style: str 
     try:
         client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
         response = await client.messages.create(
-            model="claude-sonnet-4-6-20260610",
+            model="claude-sonnet-4-6",
             max_tokens=30,
             system=WORKOUT_PROMPT,
             messages=[{"role": "user", "content": user_message}],
